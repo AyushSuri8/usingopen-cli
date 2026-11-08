@@ -1,0 +1,16 @@
+import { CliUsageError, Command } from "@usingopen/utils/cli";
+import { predictHelp as commandHelp } from "../cli/command-help";
+import { runPredictCompare } from "../cli/predict-cli";
+
+export default class Predict extends Command {
+	static description = commandHelp.description;
+
+	static examples = ["usingopen predict"];
+
+	async run(): Promise<void> {
+		await this.parse(Predict);
+		if (!process.stdin.isTTY || !process.stdout.isTTY)
+			throw new CliUsageError("usingopen predict needs an interactive terminal");
+		await runPredictCompare();
+	}
+}

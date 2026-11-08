@@ -1,0 +1,32 @@
+// Device-code fallback for the UsingOpen identity, per the WorkOS CLI Auth
+// flow (RFC 8628). Same client, endpoints and credential row as the PKCE
+// login in usingopen.kdl: `store-as "usingopen"` merges both flows into one
+// row, WorkOS rotates the refresh token on every exchange, and
+// USINGOPEN_CLIENT_ID supplies the public client id (docs/auth-workos.md).
+auth "usingopen-device" {
+	name "UsingOpen (device code)"
+	login "device-code" {
+		client-id hook="usingopen-client-id"
+		device url="https://api.workos.com/user_management/authorize/device" timeout-ms=15000 {
+			headers { Accept "application/json" }
+		}
+		token url="https://api.workos.com/user_management/authenticate" timeout-ms=15000 {
+			headers { Accept "application/json" }
+		}
+		response user-code="user_code" device-code="device_code" verification-uri="verification_uri" verification-uri-complete="verification_uri_complete" interval="interval" expires-in="expires_in"
+		instructions "Enter code: {user_code}"
+		credential {
+			access "access_token"
+			refresh "refresh_token"
+			expires "jwt" skew-ms=0 fallback-ms=86400000
+			email "user.email" claim="email"
+			account-id "user.id" claim="sub"
+		}
+	}
+	refresh {
+		token url="https://api.workos.com/user_management/authenticate" timeout-ms=15000 {
+			headers { Accept "application/json" }
+		}
+	}
+	store-as "usingopen"
+}

@@ -1,0 +1,36 @@
+// UsingOpen identity via WorkOS AuthKit (free tier). Not a model provider:
+// the credential authorizes usingopen.com services such as `usingopen
+// stream` (live.usingopen.com).
+//
+// WorkOS AuthKit public client — PKCE only, no client secret ever ships in
+// the CLI. `client-id` resolves from USINGOPEN_CLIENT_ID (see
+// docs/auth-workos.md); the free tier has no SSO connections and no custom
+// AuthKit domain, so api.workos.com serves every request. Browser
+// authorization code + PKCE is the default flow; `usingopen login usingopen
+// --device` runs the RFC 8628 device fallback (auth/usingopen-device.kdl)
+// against the same `usingopen` credential row, and WorkOS rotates the
+// refresh token on every exchange.
+auth "usingopen" {
+	name "UsingOpen"
+	env "USINGOPEN_API_KEY"
+	login "oauth-code" {
+		client-id hook="usingopen-client-id"
+		authorize-url "https://api.workos.com/user_management/authorize"
+		authorize-params { provider "authkit" }
+		scopes "openid" "profile" "email" "offline_access"
+		pkce #true
+		instructions "Sign in to your usingopen.com account in the browser. If the browser cannot reach this machine, paste the final redirect URL when prompted, or rerun with --device for a device code."
+		callback port=54551 path="/callback" hostname="127.0.0.1" redirect-uri-env="USINGOPEN_REDIRECT_URI"
+		token url="https://api.workos.com/user_management/authenticate" body="form"
+		credential {
+			access "access_token"
+			refresh "refresh_token"
+			expires "jwt" skew-ms=0 fallback-ms=86400000
+			email "user.email" claim="email"
+			account-id "user.id" claim="sub"
+		}
+	}
+	refresh {
+		token url="https://api.workos.com/user_management/authenticate" body="form"
+	}
+}

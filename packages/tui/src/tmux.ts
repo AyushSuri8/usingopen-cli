@@ -1,0 +1,45 @@
+import { $which } from "@usingopen/utils";
+import { isBunTestRuntime } from "@usingopen/utils/env";
+import { tmuxMultiplexer, wrapTmuxPassthrough } from "./multiplexers/tmux";
+
+export { wrapTmuxPassthrough } from "./multiplexers/tmux";
+
+/** Pass a control sequence through tmux, leaving direct-terminal output unchanged. */
+export function wrapTmuxPassthroughIfNeeded(payload: string, env: NodeJS.ProcessEnv = Bun.env): string {
+	return tmuxMultiplexer.isInside(env) ? wrapTmuxPassthrough(payload) : payload;
+}
+
+const CLIENT_TERMTYPE_NAME = /^([A-Za-z][A-Za-z0-9._+-]*)(?=\s|\(|$)/u;
+const CLIENT_TERMTYPE_TIMEOUT_MS = 500;
+let cachedClientTerminalName: string | null | undefined;
+
+function queryTmuxClientTerminalName(env: NodeJS.ProcessEnv): string | null {
+	const tmux = $which("tmux", { PATH: env.PATH });
+	if (!tmux) return null;
+	try {
+		const result = Bun.spawnSync([tmux, "display-message", "-p", "#{client_termtype}"], {
+			env,
+			stdout: "pipe",
+			stderr: "ignore",
+			timeout: CLIENT_TERMTYPE_TIMEOUT_MS,
+			killSignal: "SIGKILL",
+		});
+		if (result.exitCode !== 0) return null;
+		return CLIENT_TERMTYPE_NAME.exec(result.stdout.toString().trim())?.[1] ?? null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Resolve the terminal emulator name recorded for this tmux client.
+ *
+ * tmux overwrites pane identity variables with its own values, but retains the
+ * attached client's terminal-type reply in `#{client_termtype}`. The local IPC
+ * query runs once per process and degrades to `null` when unavailable.
+ */
+export function resolveTmuxClientTerminalName(env: NodeJS.ProcessEnv = Bun.env): string | null {
+	if (!tmuxMultiplexer.isInside(env) || isBunTestRuntime()) return null;
+	if (cachedClientTerminalName === undefined) cachedClientTerminalName = queryTmuxClientTerminalName(env);
+	return cachedClientTerminalName;
+}

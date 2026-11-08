@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /r/
+
+Sitemap: https://relay.usingopen.com/sitemap.xml

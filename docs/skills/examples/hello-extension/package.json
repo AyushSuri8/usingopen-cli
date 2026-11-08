@@ -1,0 +1,9 @@
+{
+  "name": "hello-extension",
+  "version": "1.0.0",
+  "description": "Minimal usingopen extension example",
+  "homepage": "https://usingopen.com",
+  "usingopen": {
+    "extensions": ["./index.ts"]
+  }
+}
