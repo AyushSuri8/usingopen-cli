@@ -8,7 +8,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@usingopen/coding-agent"><img src="https://img.shields.io/npm/v/@usingopen/coding-agent?style=flat&colorA=222222&colorB=CB3837" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/usingopen"><img src="https://img.shields.io/npm/v/usingopen?style=flat&colorA=222222&colorB=CB3837" alt="npm version"></a>
   <a href="https://github.com/usingopen/usingopen/blob/main/packages/coding-agent/CHANGELOG.md"><img src="https://img.shields.io/badge/changelog-keep-E05735?style=flat&colorA=222222" alt="Changelog"></a>
   <a href="https://github.com/usingopen/usingopen/actions"><img src="https://img.shields.io/github/actions/workflow/status/usingopen/usingopen/ci.yml?style=flat&colorA=222222&colorB=3FB950" alt="CI"></a>
   <a href="https://github.com/usingopen/usingopen/blob/main/LICENSE"><img src="https://img.shields.io/github/license/usingopen/usingopen?style=flat&colorA=222222&colorB=58A6FF" alt="License"></a>
@@ -34,36 +34,7 @@ The most capable agent surface that ships. Continuously tuned by real-world use 
 
 ## Install
 
-**macOS · Linux**
-
-```sh
-curl -fsSL https://usingopen.com/install | sh
-```
-
-> **macOS (unsigned binaries):** UsingOpen ships unsigned macOS builds, so a
-> quarantine-setting download (e.g. a browser download of the binary) needs
-> **right-click → Open** on first launch. The installer above and the Homebrew
-> formula do not quarantine, so they are unaffected.
-> See [docs/macos-signing-notarization.md](docs/macos-signing-notarization.md).
-
-> **Alpine / musl:** the prebuilt musl binary links `libstdc++`/`libgcc` dynamically, which stock Alpine does not ship. Install them first: `apk add libstdc++ libgcc`.
-
-**Homebrew**
-
-```sh
-brew install usingopen/tap/usingopen
-```
-
-> The Homebrew tap is internal (`git.usingopen.com/usingopen/homebrew-tap`); add
-> it first with `brew tap usingopen/tap https://git.usingopen.com/usingopen/homebrew-tap.git`.
-
-**Bun (recommended)**
-
-```sh
-bun install -g @usingopen/coding-agent
-```
-
-**npm**
+**npm (recommended)**
 
 ```sh
 npm install -g usingopen
@@ -72,49 +43,41 @@ npm install -g usingopen
 > Node-only: the package fetches the prebuilt release binary for your platform
 > during install, so Bun is not required.
 
-**Nix**
+**macOS · Linux installer**
 
 ```sh
-# Run without installing
-nix run git+https://git.usingopen.com/usingopen/usingopen
-
-# Or install into the active profile
-nix profile install git+https://git.usingopen.com/usingopen/usingopen
+curl -fsSL https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.sh | sh
 ```
 
-Flake consumers can use `packages.<system>.usingopen`, `overlays.default`, `nixosModules.default`, or `homeManagerModules.default`. A Home Manager configuration can install USINGOPEN and own its settings declaratively:
+Options: `--binary` installs the prebuilt binary (the default), `--source` clones
+[`AyushSuri8/usingopen-cli`](https://github.com/AyushSuri8/usingopen-cli) and
+builds it with bun, and `--ref <tag>` pins a release.
 
-```nix
-{
-  inputs.usingopen.url = "git+https://git.usingopen.com/usingopen/usingopen";
+> **macOS (unsigned binaries):** UsingOpen ships unsigned macOS builds, so a
+> quarantine-setting download (e.g. a browser download of the binary) needs
+> **right-click → Open** on first launch. Downloads made by `npm` or `curl` are
+> not quarantined, so they are unaffected.
+> See [docs/macos-signing-notarization.md](docs/macos-signing-notarization.md).
 
-  # In your Home Manager module:
-  imports = [ inputs.usingopen.homeManagerModules.default ];
-  programs.usingopen = {
-    enable = true;
-    settings.startup.quiet = true;
-  };
-}
-```
-
-**Windows (PowerShell)**
-
-```powershell
-irm https://usingopen.com/install.ps1 | iex
-```
+> **Alpine / musl:** the prebuilt musl binary links `libstdc++`/`libgcc` dynamically, which stock Alpine does not ship. Install them first: `apk add libstdc++ libgcc`.
 
 **Pinned versions**
 
-Install a specific tag with either installer:
+The npm package version and the binary version are independent: the launcher
+resolves the newest release at install time. Pin the binary with
+`USINGOPEN_RELEASE_TAG`:
 
 ```sh
-curl -fsSL https://usingopen.com/dl/install.sh | sh -s -- --ref v18.8.9
-irm https://usingopen.com/dl/install.ps1 | iex; usingopen-install -Ref v18.8.9
+USINGOPEN_RELEASE_TAG=v18.18.3 npm install -g usingopen
 ```
 
-> Nix flake consumers use the private ref `git+https://git.usingopen.com/usingopen/usingopen` (access-gated).
+The shell installer takes `--ref` instead:
 
-macOS · Linux · Windows · bun ≥ 1.3.14
+```sh
+curl -fsSL https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.sh | sh -s -- --ref v18.18.3
+```
+
+macOS · Linux · Windows · Node ≥ 18.17 or bun ≥ 1.3.14
 
 ### Shell completions
 
@@ -725,6 +688,6 @@ _made for terminals that stay open_
 - [UsingOpen](https://usingopen.com)
 - [GitHub](https://github.com/usingopen/usingopen)
 - [Changelog](https://github.com/usingopen/usingopen/blob/main/packages/coding-agent/CHANGELOG.md)
-- [npm](https://www.npmjs.com/package/@usingopen/coding-agent)
+- [npm](https://www.npmjs.com/package/usingopen)
 - [Discord](https://discord.gg/4NMW9cdXZa)
 - [MIT](https://github.com/usingopen/usingopen/blob/main/LICENSE)

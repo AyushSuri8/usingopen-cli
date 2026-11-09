@@ -26,10 +26,14 @@ version are independent.
   layout: `<base>/latest` → `<base>/download/<tag>/<asset>` and `SHA256SUMS.txt`.
 - **Skip the prefetch**: set `USINGOPEN_SKIP_POSTINSTALL=1`.
 
+Source and releases: [`AyushSuri8/usingopen-cli`](https://github.com/AyushSuri8/usingopen-cli).
+
 Other install methods:
 
 ```sh
-curl -fsSL https://usingopen.com/install | sh        # macOS / Linux
-brew install usingopen/tap/usingopen                  # Homebrew
-bun install -g @usingopen/coding-agent                # Bun, from source-asset package
+# Prebuilt binary (macOS / Linux)
+curl -fsSL https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.sh | sh
+
+# Build from a checkout with bun
+curl -fsSL https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.sh | sh -s -- --source
 ```

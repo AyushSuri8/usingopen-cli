@@ -2,17 +2,17 @@
 set -e
 
 # USINGOPEN Coding Agent Installer
-# Usage: curl -fsSL https://usingopen.com/dl/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.sh | sh
 #
 # Options:
-#   --source       Install via bun (installs bun if needed)
-#   --binary       Always install prebuilt binary
+#   --source       Build from a git checkout with bun (installs bun if needed)
+#   --binary       Install the prebuilt binary (default)
 #   --ref <ref>    Install specific tag/commit/branch
 #   -r <ref>       Shorthand for --ref
 
-REPO_URL="https://git.usingopen.com/usingopen/usingopen"
-DL_BASE="https://usingopen.com/dl"
-PACKAGE="@usingopen/coding-agent"
+# Source checkout for --source; release assets for the default binary install.
+REPO_URL="https://github.com/AyushSuri8/usingopen-cli.git"
+DL_BASE="https://github.com/can1357/oh-my-pi/releases"
 INSTALL_DIR="${USINGOPEN_INSTALL_DIR:-${PI_INSTALL_DIR:-$HOME/.local/bin}}"
 MIN_BUN_VERSION="1.3.14"
 
@@ -172,45 +172,66 @@ has_git_lfs() {
     command -v git-lfs >/dev/null 2>&1
 }
 
-# Install via bun
+# Install from a git checkout with bun
 install_via_bun() {
-    echo "Installing via bun..."
-    if [ -n "$REF" ]; then
-        if ! has_git; then
-            echo "git is required for --ref when installing from source"
-            exit 1
-        fi
+    echo "Installing via bun from source..."
 
-        TMP_DIR="$(mktemp -d)"
-        trap 'rm -rf "$TMP_DIR"' EXIT
-
-        if git clone --depth 1 --branch "$REF" "$REPO_URL" "$TMP_DIR" >/dev/null 2>&1; then
-            :
-        else
-            git clone "$REPO_URL" "$TMP_DIR"
-            (cd "$TMP_DIR" && git checkout "$REF")
-        fi
-
-        # Pull LFS files
-        if has_git_lfs; then
-            (cd "$TMP_DIR" && git lfs pull)
-        fi
-
-        if [ ! -d "$TMP_DIR/packages/coding-agent" ]; then
-            echo "Expected package at ${TMP_DIR}/packages/coding-agent"
-            exit 1
-        fi
-
-        bun install -g "$TMP_DIR/packages/coding-agent" || {
-            echo "Failed to install from source"
-            exit 1
-        }
-    else
-        bun install -g "$PACKAGE" || {
-            echo "Failed to install $PACKAGE"
-            exit 1
-        }
+    if ! has_git; then
+        echo "git is required to install from source"
+        exit 1
     fi
+
+    # The workspace packages are not published, and bun's global install links
+    # the package in place, so the checkout has to outlive this script.
+    SRC_DIR="${USINGOPEN_SRC_DIR:-$HOME/.usingopen/src}"
+    if [ -d "$SRC_DIR/.git" ]; then
+        echo "Updating checkout at $SRC_DIR..."
+        (cd "$SRC_DIR" && git fetch --tags origin >/dev/null 2>&1) || {
+            echo "Failed to update $SRC_DIR"
+            exit 1
+        }
+        if [ -n "$REF" ]; then
+            (cd "$SRC_DIR" && git checkout "$REF" >/dev/null 2>&1) || {
+                echo "Failed to check out $REF in $SRC_DIR"
+                exit 1
+            }
+        else
+            (cd "$SRC_DIR" && git pull --ff-only >/dev/null 2>&1) || {
+                echo "Failed to update $SRC_DIR"
+                exit 1
+            }
+        fi
+    else
+        echo "Cloning $REPO_URL to $SRC_DIR..."
+        mkdir -p "$(dirname "$SRC_DIR")"
+        if [ -n "$REF" ]; then
+            if ! git clone --depth 1 --branch "$REF" "$REPO_URL" "$SRC_DIR" >/dev/null 2>&1; then
+                git clone "$REPO_URL" "$SRC_DIR"
+                (cd "$SRC_DIR" && git checkout "$REF")
+            fi
+        else
+            git clone --depth 1 "$REPO_URL" "$SRC_DIR" >/dev/null 2>&1 || {
+                echo "Failed to clone $REPO_URL"
+                exit 1
+            }
+        fi
+    fi
+
+    # Pull LFS files
+    if has_git_lfs; then
+        (cd "$SRC_DIR" && git lfs pull)
+    fi
+
+    if [ ! -d "$SRC_DIR/packages/coding-agent" ]; then
+        echo "Expected package at ${SRC_DIR}/packages/coding-agent"
+        exit 1
+    fi
+
+    bun install -g "$SRC_DIR/packages/coding-agent" || {
+        echo "Failed to install from source"
+        exit 1
+    }
+
     echo ""
     echo "✓ Installed usingopen via bun"
     echo "Run 'usingopen' to get started!"
@@ -239,15 +260,15 @@ install_binary() {
         fi
     fi
 
-    BINARY="usingopen-${PLATFORM}-${ARCH}"
-    # Resolve release tag from the artifact host (a plain-text file holding the
-    # latest tag; an explicit --ref wins).
+    BINARY="omp-${PLATFORM}-${ARCH}"
+    # Resolve the release tag from the releases/latest redirect; an explicit
+    # --ref wins.
     if [ -n "$REF" ]; then
         echo "Using release $REF..."
         LATEST="$REF"
     else
         echo "Fetching latest release..."
-        LATEST=$(curl -fsSL --connect-timeout 10 --max-time 60 "$DL_BASE/latest" | tr -d '[:space:]')
+        LATEST=$(curl -fsSL --connect-timeout 10 --max-time 60 -o /dev/null -w '%{url_effective}' "$DL_BASE/latest" | sed 's#.*/tag/##')
     fi
 
     if [ -z "$LATEST" ]; then
@@ -257,16 +278,16 @@ install_binary() {
     echo "Using version: $LATEST"
 
     mkdir -p "$INSTALL_DIR"
-    # Download binary from the private artifact host
-    BINARY_URL="${DL_BASE}/${LATEST}/${BINARY}"
+    # Download the release asset
+    BINARY_URL="${DL_BASE}/download/${LATEST}/${BINARY}"
     echo "Downloading ${BINARY}..."
     curl -fsSL --connect-timeout 10 --speed-limit 1024 --speed-time 30 "$BINARY_URL" -o "${INSTALL_DIR}/usingopen"
     chmod +x "${INSTALL_DIR}/usingopen"
 
     # Verify the download against the published SHA256SUMS when the host serves
     # one (all release artifacts ship together); skip with a warning otherwise.
-    if CHECKSUMS=$(curl -fsSL --connect-timeout 10 --max-time 60 "${DL_BASE}/${LATEST}/SHA256SUMS" 2>/dev/null); then
-        EXPECTED=$(printf '%s\n' "$CHECKSUMS" | grep " ${BINARY}\$" | cut -d' ' -f1 | head -n 1)
+    if CHECKSUMS=$(curl -fsSL --connect-timeout 10 --max-time 60 "${DL_BASE}/download/${LATEST}/SHA256SUMS.txt" 2>/dev/null); then
+        EXPECTED=$(printf '%s\n' "$CHECKSUMS" | awk -v asset="$BINARY" '$2 == asset { print $1; exit }')
         if [ -n "$EXPECTED" ] && command -v sha256sum >/dev/null 2>&1; then
             ACTUAL=$(sha256sum "${INSTALL_DIR}/usingopen" | cut -d' ' -f1)
             if [ "$ACTUAL" != "$EXPECTED" ]; then
@@ -278,7 +299,7 @@ install_binary() {
             echo "Warning: no checksum entry for ${BINARY}; skipping verification"
         fi
     else
-        echo "Warning: SHA256SUMS unavailable; skipping verification"
+        echo "Warning: SHA256SUMS.txt unavailable; skipping verification"
     fi
 
     # Verify the freshly installed binary can actually start before reporting
@@ -332,16 +353,8 @@ case "$MODE" in
         install_binary
         ;;
     *)
-        # Default: use bun only when it matches the host architecture, otherwise
-        # fall back to the prebuilt binary so Rosetta bun can't force an x86_64 build.
-        if has_bun && bun_arch_matches_host; then
-            require_bun_version
-            install_via_bun
-        else
-            if has_bun; then
-                echo "Detected bun with architecture '$(bun_arch)' on a '$(host_arch)' host; using the prebuilt binary instead."
-            fi
-            install_binary
-        fi
+        # Default: the published release binary. It needs no toolchain and is
+        # checksum-verified; --source opts into the bun build from a checkout.
+        install_binary
         ;;
 esac
