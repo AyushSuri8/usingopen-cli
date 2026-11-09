@@ -12,7 +12,10 @@ set -e
 
 # Source checkout for --source; release assets for the default binary install.
 REPO_URL="https://github.com/AyushSuri8/usingopen-cli.git"
-DL_BASE="https://github.com/can1357/oh-my-pi/releases"
+# Binaries built by this repository identify as `usingopen`; the upstream
+# oh-my-pi release is the fallback for platforms without a usingopen build.
+DL_BASE="https://github.com/AyushSuri8/usingopen-cli/releases"
+UPSTREAM_DL_BASE="https://github.com/can1357/oh-my-pi/releases"
 INSTALL_DIR="${USINGOPEN_INSTALL_DIR:-${PI_INSTALL_DIR:-$HOME/.local/bin}}"
 MIN_BUN_VERSION="1.3.14"
 
@@ -260,33 +263,52 @@ install_binary() {
         fi
     fi
 
-    BINARY="omp-${PLATFORM}-${ARCH}"
-    # Resolve the release tag from the releases/latest redirect; an explicit
-    # --ref wins.
-    if [ -n "$REF" ]; then
-        echo "Using release $REF..."
-        LATEST="$REF"
-    else
-        echo "Fetching latest release..."
-        LATEST=$(curl -fsSL --connect-timeout 10 --max-time 60 -o /dev/null -w '%{url_effective}' "$DL_BASE/latest" | sed 's#.*/tag/##')
-    fi
+    # Pick the first channel that actually publishes this host's asset: the
+    # usingopen build from this repository, else the upstream omp release.
+    BINARY=""
+    BINARY_BASE=""
+    LATEST=""
+    for PREFIX in usingopen omp; do
+        if [ "$PREFIX" = "usingopen" ]; then
+            CANDIDATE_BASE="$DL_BASE"
+        else
+            CANDIDATE_BASE="$UPSTREAM_DL_BASE"
+        fi
+        CANDIDATE="${PREFIX}-${PLATFORM}-${ARCH}"
 
-    if [ -z "$LATEST" ]; then
-        echo "Failed to resolve release tag"
+        if [ -n "$REF" ]; then
+            CANDIDATE_TAG="$REF"
+        else
+            echo "Fetching latest $PREFIX release..."
+            CANDIDATE_TAG=$(curl -fsSL --connect-timeout 10 --max-time 60 -o /dev/null -w '%{url_effective}' "$CANDIDATE_BASE/latest" | sed 's#.*/tag/##')
+        fi
+        if [ -z "$CANDIDATE_TAG" ]; then
+            continue
+        fi
+        if curl -fsIL --connect-timeout 10 --max-time 60 -o /dev/null "${CANDIDATE_BASE}/download/${CANDIDATE_TAG}/${CANDIDATE}"; then
+            BINARY="$CANDIDATE"
+            BINARY_BASE="$CANDIDATE_BASE"
+            LATEST="$CANDIDATE_TAG"
+            break
+        fi
+    done
+
+    if [ -z "$BINARY" ]; then
+        echo "No release binary published for ${PLATFORM}-${ARCH}"
         exit 1
     fi
     echo "Using version: $LATEST"
 
     mkdir -p "$INSTALL_DIR"
     # Download the release asset
-    BINARY_URL="${DL_BASE}/download/${LATEST}/${BINARY}"
+    BINARY_URL="${BINARY_BASE}/download/${LATEST}/${BINARY}"
     echo "Downloading ${BINARY}..."
     curl -fsSL --connect-timeout 10 --speed-limit 1024 --speed-time 30 "$BINARY_URL" -o "${INSTALL_DIR}/usingopen"
     chmod +x "${INSTALL_DIR}/usingopen"
 
     # Verify the download against the published SHA256SUMS when the host serves
     # one (all release artifacts ship together); skip with a warning otherwise.
-    if CHECKSUMS=$(curl -fsSL --connect-timeout 10 --max-time 60 "${DL_BASE}/download/${LATEST}/SHA256SUMS.txt" 2>/dev/null); then
+    if CHECKSUMS=$(curl -fsSL --connect-timeout 10 --max-time 60 "${BINARY_BASE}/download/${LATEST}/SHA256SUMS.txt" 2>/dev/null); then
         EXPECTED=$(printf '%s\n' "$CHECKSUMS" | awk -v asset="$BINARY" '$2 == asset { print $1; exit }')
         if [ -n "$EXPECTED" ] && command -v sha256sum >/dev/null 2>&1; then
             ACTUAL=$(sha256sum "${INSTALL_DIR}/usingopen" | cut -d' ' -f1)

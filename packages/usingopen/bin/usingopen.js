@@ -11,7 +11,7 @@ try {
 } catch (error) {
 	process.stderr.write(`usingopen: ${error instanceof Error ? error.message : String(error)}\n`);
 	process.stderr.write(
-		"No binary installed. Download one from https://github.com/can1357/oh-my-pi/releases, " +
+		"No binary installed. Download one from https://github.com/AyushSuri8/usingopen-cli/releases, " +
 			"or set USINGOPEN_DL_BASE to a mirror and retry.\n",
 	);
 	process.exit(1);

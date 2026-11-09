@@ -1,9 +1,11 @@
 // Resolves, downloads, and caches the release binary for this platform.
 //
 // This package ships no runtime of its own: the CLI is a Bun-compiled
-// executable, and each release publishes bare per-platform binaries plus a
-// `SHA256SUMS.txt`. Reusing that published contract is what lets an npm install
-// work on a machine with nothing but Node.
+// executable. Releases built from this repository publish bare per-platform
+// binaries named `usingopen-<platform>-<arch>` plus a `SHA256SUMS.txt`, which is
+// what lets an npm install work on a machine with nothing but Node. Platforms
+// that have no usingopen build yet fall back to the upstream oh-my-pi release,
+// whose assets are named `omp-<platform>-<arch>`.
 import { spawnSync } from "node:child_process";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
@@ -12,31 +14,51 @@ import * as path from "node:path";
 import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
+/** Releases built from this repository; serves `usingopen-*` assets. */
+export const brandedBase = "https://github.com/AyushSuri8/usingopen-cli/releases";
+
+/** Upstream oh-my-pi releases; serves `omp-*` assets and is the fallback channel. */
+export const upstreamBase = "https://github.com/can1357/oh-my-pi/releases";
+
+/** Mirror override. Replaces both channels and serves `usingopen-*` assets. */
+const mirrorBase = (process.env.USINGOPEN_DL_BASE ?? "").replace(/\/+$/, "");
+
 /**
- * Release host. `<base>/latest` resolves to the newest `<base>/download/<tag>/`,
- * which serves `<asset>` and `SHA256SUMS.txt`. Override for mirrors.
+ * Primary release host: `<base>/latest` resolves to the newest `<base>/download/<tag>/`,
+ * which serves `<asset>` and `SHA256SUMS.txt`.
  */
-export const dlBase = (process.env.USINGOPEN_DL_BASE ?? "https://github.com/can1357/oh-my-pi/releases").replace(
-	/\/+$/,
-	"",
-);
+export const dlBase = mirrorBase || brandedBase;
 
 /** How long a resolved release tag is reused before the host is asked again. */
 const TAG_TTL_MS = 6 * 60 * 60 * 1000;
 
 /** Release asset name for a target, matching the published artifacts. */
-export function binaryAsset({ platform, arch, libc }) {
-	if (platform === "win32") return `omp-windows-${arch}.exe`;
-	if (platform === "darwin") return `omp-darwin-${arch}`;
-	return `omp-${libc === "musl" ? "linux-musl" : "linux"}-${arch}`;
+export function binaryAsset({ platform, arch, libc }, flavor = "usingopen") {
+	if (platform === "win32") return `${flavor}-windows-${arch}.exe`;
+	if (platform === "darwin") return `${flavor}-darwin-${arch}`;
+	return `${flavor}-${libc === "musl" ? "linux-musl" : "linux"}-${arch}`;
 }
 
-export function binaryUrl(tag, asset) {
-	return `${dlBase}/download/${tag}/${asset}`;
+/**
+ * Channels to try, in order. A mirror override is authoritative; otherwise the
+ * branded build wins and the upstream omp asset covers platforms this
+ * repository does not build yet.
+ */
+export function releaseChannels() {
+	const target = detectTarget();
+	if (mirrorBase) return [{ base: mirrorBase, asset: binaryAsset(target) }];
+	return [
+		{ base: brandedBase, asset: binaryAsset(target) },
+		{ base: upstreamBase, asset: binaryAsset(target, "omp") },
+	];
 }
 
-export function checksumsUrl(tag) {
-	return `${dlBase}/download/${tag}/SHA256SUMS.txt`;
+export function binaryUrl(base, tag, asset) {
+	return `${base}/download/${tag}/${asset}`;
+}
+
+export function checksumsUrl(base, tag) {
+	return `${base}/download/${tag}/SHA256SUMS.txt`;
 }
 
 /** Digest for `asset` from a `sha256sum`-style manifest, or undefined. */
@@ -49,9 +71,10 @@ export function expectedChecksum(checksums, asset) {
 	return undefined;
 }
 
-/** `<cache>/usingopen/bin/<tag>/<asset>`; `XDG_CACHE_HOME` is honoured. */
-export function cachePath(tag, asset) {
-	return path.join(cacheRoot(), "bin", tag, asset);
+/** `<cache>/usingopen/bin/<host>/<tag>/<asset>`; `XDG_CACHE_HOME` is honoured. */
+export function cachePath(base, tag, asset) {
+	const host = base.replace(/^[a-z]+:\/\//, "").replace(/[^0-9a-zA-Z.-]+/g, "_");
+	return path.join(cacheRoot(), "bin", host, tag, asset);
 }
 
 function cacheRoot() {
@@ -64,13 +87,14 @@ function normalizeTag(tag) {
 	return trimmed.startsWith("v") ? trimmed : `v${trimmed}`;
 }
 
-function tagCachePath() {
-	return path.join(cacheRoot(), "latest-tag.json");
+function tagCachePath(base) {
+	const host = base.replace(/^[a-z]+:\/\//, "").replace(/[^0-9a-zA-Z.-]+/g, "_");
+	return path.join(cacheRoot(), `latest-tag.${host}.json`);
 }
 
-async function readCachedTag() {
+async function readCachedTag(base) {
 	try {
-		const cached = JSON.parse(await fs.promises.readFile(tagCachePath(), "utf8"));
+		const cached = JSON.parse(await fs.promises.readFile(tagCachePath(base), "utf8"));
 		const tag = typeof cached?.tag === "string" ? normalizeTag(cached.tag) : undefined;
 		if (!tag) return undefined;
 		return { tag, fresh: Date.now() - Number(cached.fetchedAt) < TAG_TTL_MS };
@@ -79,22 +103,22 @@ async function readCachedTag() {
 	}
 }
 
-async function writeCachedTag(tag) {
-	const file = tagCachePath();
+async function writeCachedTag(base, tag) {
+	const file = tagCachePath(base);
 	await fs.promises.mkdir(path.dirname(file), { recursive: true });
 	await fs.promises.writeFile(file, JSON.stringify({ tag, fetchedAt: Date.now() }));
 }
 
 /** Newest published release tag, reusing a cached answer for a few hours. */
-export async function resolveTag(log = () => {}) {
+export async function resolveTag(base = dlBase, log = () => {}) {
 	const pinned = process.env.USINGOPEN_RELEASE_TAG;
 	if (pinned) return normalizeTag(pinned);
 
-	const cached = await readCachedTag();
+	const cached = await readCachedTag(base);
 	if (cached?.fresh) return cached.tag;
 	try {
-		const tag = await fetchLatestTag();
-		await writeCachedTag(tag);
+		const tag = await fetchLatestTag(base);
+		await writeCachedTag(base, tag);
 		return tag;
 	} catch (error) {
 		if (cached?.tag) {
@@ -105,8 +129,8 @@ export async function resolveTag(log = () => {}) {
 	}
 }
 
-async function fetchLatestTag() {
-	const latest = `${dlBase}/latest`;
+async function fetchLatestTag(base) {
+	const latest = `${base}/latest`;
 	const head = await fetch(latest, { method: "HEAD", redirect: "manual" });
 	const location = head.headers.get("location");
 	// A GitHub-style host redirects to .../tag/<tag>; a plain-text mirror serves
@@ -153,10 +177,10 @@ export function looksExecutable(bytes) {
 	return [0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe, 0xcafebabe, 0xbebafeca].includes(magic);
 }
 
-async function fetchChecksums(tag, asset) {
+async function fetchChecksums(base, tag, asset) {
 	for (const name of ["SHA256SUMS.txt", "SHA256SUMS"]) {
 		try {
-			const response = await fetch(`${dlBase}/download/${tag}/${name}`);
+			const response = await fetch(`${base}/download/${tag}/${name}`);
 			if (!response.ok) continue;
 			const digest = expectedChecksum(await response.text(), asset);
 			if (digest) return digest;
@@ -171,10 +195,10 @@ function describe(error) {
 	return error instanceof Error ? error.message : String(error);
 }
 
-export async function downloadBinary(tag, asset, log = () => {}) {
-	const destination = cachePath(tag, asset);
+export async function downloadBinary(base, tag, asset, log = () => {}) {
+	const destination = cachePath(base, tag, asset);
 	await fs.promises.mkdir(path.dirname(destination), { recursive: true });
-	const url = binaryUrl(tag, asset);
+	const url = binaryUrl(base, tag, asset);
 	log(`downloading ${asset} (${tag})…`);
 
 	const response = await fetch(url);
@@ -213,7 +237,7 @@ export async function downloadBinary(tag, asset, log = () => {}) {
 			throw new Error(`download failed: ${asset} is not an executable (${received} bytes); check ${url}`);
 		}
 		const digest = hash.digest("hex");
-		expected = await fetchChecksums(tag, asset);
+		expected = await fetchChecksums(base, tag, asset);
 		if (expected && expected !== digest) {
 			throw new Error(`checksum mismatch for ${asset}: expected ${expected}, got ${digest}`);
 		}
@@ -232,10 +256,18 @@ export async function downloadBinary(tag, asset, log = () => {}) {
 
 /** Cached release binary for this platform, downloading it when absent. */
 export async function ensureBinary(log = () => {}) {
-	const asset = binaryAsset(detectTarget());
-	const tag = await resolveTag(log);
-	const destination = cachePath(tag, asset);
-	const existing = await fs.promises.stat(destination).catch(() => undefined);
-	if (existing?.isFile()) return destination;
-	return downloadBinary(tag, asset, log);
+	let lastError;
+	for (const channel of releaseChannels()) {
+		try {
+			const tag = await resolveTag(channel.base, log);
+			const destination = cachePath(channel.base, tag, channel.asset);
+			const existing = await fs.promises.stat(destination).catch(() => undefined);
+			if (existing?.isFile()) return destination;
+			return await downloadBinary(channel.base, tag, channel.asset, log);
+		} catch (error) {
+			lastError = error;
+			log(`${channel.asset} unavailable (${describe(error)}); trying the next release channel`);
+		}
+	}
+	throw lastError ?? new Error("no release binary is available for this platform");
 }
