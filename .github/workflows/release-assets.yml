@@ -90,10 +90,21 @@ jobs:
       - name: Stage this target's addon
         run: |
           set -euo pipefail
-          if [ ! -d staged/bazel-bin ]; then
-            mkdir -p staged/bazel-bin
-            mv staged/natives-* staged/bazel-bin/
-          fi
+          # upload-artifact strips the least common ancestor of its inputs, so
+          # the archive root is either the bundle dir or the target dirs. Place
+          # every addon at the `bazel-bin/<target>/` path bazel-natives.ts
+          # reads, whatever the root turned out to be.
+          find staged -name '*.node' -printf '%p %s bytes\n'
+          mkdir -p staged/bazel-bin
+          while IFS= read -r addon; do
+            dir="$(basename "$(dirname "$addon")")"
+            case "$dir" in
+              natives-*) ;;
+              *) echo "::error file=$addon::addon is not inside a natives-* directory"; exit 1 ;;
+            esac
+            mkdir -p "staged/bazel-bin/$dir"
+            cp -fL "$addon" "staged/bazel-bin/$dir/"
+          done < <(find staged -name '*.node' -type f ! -path 'staged/bazel-bin/*')
           bun scripts/bazel-natives.ts ${{ matrix.native_targets }} \
             --source staged --dest packages/natives/native
       - name: Build binary
