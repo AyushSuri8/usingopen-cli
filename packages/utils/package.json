@@ -1,7 +1,7 @@
 {
 	"name": "@usingopen/utils",
 	"version": "18.8.9",
-	"description": "Shared utilities for pi packages",
+	"description": "Shared utilities for usingopen packages",
 	"keywords": [
 		"cli",
 		"logging",

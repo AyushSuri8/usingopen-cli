@@ -73,8 +73,8 @@ describe("getLatestRelease rename pointers", () => {
 		expect(release.dist).toBe("npm");
 		expect(release.packages).toEqual({ pkg: "@new/usingopen", natives: "@new/natives" });
 		expect(urls).toEqual([
-			"https://registry.npmjs.org/@usingopen%2fpi-coding-agent/latest",
-			"https://registry.npmjs.org/@new%2fomp/latest",
+			"https://registry.npmjs.org/@usingopen%2fcoding-agent/latest",
+			"https://registry.npmjs.org/@new%2fusingopen/latest",
 		]);
 	});
 	it("fetches the canary dist-tag when checking the canary channel", async () => {
@@ -84,7 +84,7 @@ describe("getLatestRelease rename pointers", () => {
 
 		await getLatestRelease({ channel: "canary", registries: npmjs });
 
-		expect(urls).toEqual(["https://registry.npmjs.org/@usingopen%2fpi-coding-agent/canary"]);
+		expect(urls).toEqual(["https://registry.npmjs.org/@usingopen%2fcoding-agent/canary"]);
 	});
 
 	it("ignores a rename pointer that cycles back to an already-visited package", async () => {
@@ -130,7 +130,7 @@ describe("getLatestRelease configured registry", () => {
 
 		expect(requests).toEqual([
 			{
-				url: "https://npm.corp.example/api/npm/feed/@usingopen%2fpi-coding-agent/latest",
+				url: "https://npm.corp.example/api/npm/feed/@usingopen%2fcoding-agent/latest",
 				authorization: "Bearer s3cret",
 			},
 		]);
@@ -157,8 +157,8 @@ describe("getLatestRelease configured registry", () => {
 		const release = await getLatestRelease({ registries: feed });
 
 		expect(urls).toEqual([
-			"https://npm.corp.example/api/npm/feed/@usingopen%2fpi-coding-agent/latest",
-			"https://npm.corp.example/api/npm/feed/@usingopen%2fpi-coding-agent",
+			"https://npm.corp.example/api/npm/feed/@usingopen%2fcoding-agent/latest",
+			"https://npm.corp.example/api/npm/feed/@usingopen%2fcoding-agent",
 		]);
 		expect(release.version).toBe("999.2.0");
 		expect(release.dist).toBe("binary");
@@ -181,7 +181,7 @@ describe("getLatestRelease configured registry", () => {
 
 		const release = await getLatestRelease({ registries: feed });
 
-		expect(urls).toEqual(["https://npm.corp.example/api/npm/feed/@usingopen%2fpi-coding-agent/latest"]);
+		expect(urls).toEqual(["https://npm.corp.example/api/npm/feed/@usingopen%2fcoding-agent/latest"]);
 		expect(release.version).toBe("999.3.0");
 		expect(release.dist).toBe("binary");
 	});

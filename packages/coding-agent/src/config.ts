@@ -43,7 +43,7 @@ export function walkUpForPackageDir(startDir: string): string | undefined {
 /**
  * Get the base directory for resolving optional package assets (docs, examples, CHANGELOG.md).
  *
- * Honors the `PI_PACKAGE_DIR` override (useful for Nix/Guix store paths);
+ * Honors the `USINGOPEN_PACKAGE_DIR` override (legacy `PI_PACKAGE_DIR`; useful for Nix/Guix store paths);
  * otherwise walks up from `import.meta.dir` looking for a `package.json`.
  * Returns `undefined` when no owning package is locatable — notably inside
  * `bun --compile` binaries where `import.meta.dir` resolves to `/$bunfs/root`
@@ -55,7 +55,7 @@ export function walkUpForPackageDir(startDir: string): string | undefined {
  * project's `CHANGELOG.md` rendered as usingopen's startup changelog).
  */
 export function getPackageDir(): string | undefined {
-	const envDir = process.env.PI_PACKAGE_DIR;
+	const envDir = process.env.USINGOPEN_PACKAGE_DIR ?? process.env.PI_PACKAGE_DIR;
 	if (envDir) {
 		return expandTilde(envDir);
 	}

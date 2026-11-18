@@ -494,7 +494,7 @@ let gRootSpan: Span | undefined;
 let gRecordTimings = false;
 
 export function timingModeIncludes(option: "full" | "x"): boolean {
-	const value = process.env.PI_TIMING;
+	const value = process.env.USINGOPEN_TIMING || process.env.PI_TIMING;
 	if (!value) return false;
 	if (value === option) return true;
 	let start = 0;
@@ -777,7 +777,9 @@ function printModuleLoadSummary(loads: Span[], depth: number, lines: string[]): 
 		lines.push(`${grandIndent}  ${node.span.op}: body ${fmtMs(node.body)} (total ${fmtMs(durationOf(node.span))})`);
 	}
 	if (!showAll && byBody.length > MODULE_LOAD_VERBOSE_TOP) {
-		lines.push(`${grandIndent}  … ${byBody.length - MODULE_LOAD_VERBOSE_TOP} more (PI_TIMING=full to show all)`);
+		lines.push(
+			`${grandIndent}  … ${byBody.length - MODULE_LOAD_VERBOSE_TOP} more (USINGOPEN_TIMING=full to show all)`,
+		);
 	}
 
 	const roots = nodes.filter(node => node.parents === 0);
@@ -790,7 +792,7 @@ function printModuleLoadSummary(loads: Span[], depth: number, lines: string[]): 
 	}
 	if (!showAll && treeRoots.length > MODULE_TREE_ROOT_TOP) {
 		lines.push(
-			`${grandIndent}  … ${treeRoots.length - MODULE_TREE_ROOT_TOP} more roots (PI_TIMING=full to show all)`,
+			`${grandIndent}  … ${treeRoots.length - MODULE_TREE_ROOT_TOP} more roots (USINGOPEN_TIMING=full to show all)`,
 		);
 	}
 }
@@ -849,7 +851,7 @@ function renderModuleTimingNode(
 	ancestors.add(path);
 	if (!showAll && ancestors.size >= MODULE_TREE_MAX_DEPTH) {
 		if (node.children.length > 0) {
-			lines.push(`${indent}  … ${node.children.length} imports deeper (PI_TIMING=full to show all)`);
+			lines.push(`${indent}  … ${node.children.length} imports deeper (USINGOPEN_TIMING=full to show all)`);
 		}
 		ancestors.delete(path);
 		return;
@@ -860,7 +862,7 @@ function renderModuleTimingNode(
 	}
 	if (!showAll && node.children.length > MODULE_TREE_CHILD_TOP) {
 		lines.push(
-			`${indent}  … ${node.children.length - MODULE_TREE_CHILD_TOP} more imports (PI_TIMING=full to show all)`,
+			`${indent}  … ${node.children.length - MODULE_TREE_CHILD_TOP} more imports (USINGOPEN_TIMING=full to show all)`,
 		);
 	}
 	ancestors.delete(path);

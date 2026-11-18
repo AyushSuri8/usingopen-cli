@@ -1416,6 +1416,10 @@ export function buildResumeArgs(cfg: Config, jobDir: string): string[] {
 }
 
 const FORWARD_ENV_DENYLIST = new Set([
+	"USINGOPEN_CODING_AGENT_DIR",
+	"USINGOPEN_CONFIG_DIR",
+	"USINGOPEN_PROFILE",
+	"USINGOPEN_PACKAGE_DIR",
 	"PI_CODING_AGENT_DIR",
 	"PI_CONFIG_DIR",
 	"PI_PROFILE",

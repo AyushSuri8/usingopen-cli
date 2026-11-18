@@ -159,6 +159,14 @@ export function applyLegacyEnvCompat(env: Record<string, string | undefined> = p
 	}
 }
 
+/**
+ * Resolve the agent-directory override, preferring the canonical
+ * `USINGOPEN_CODING_AGENT_DIR` and falling back to the legacy `PI_CODING_AGENT_DIR`.
+ */
+export function getAgentDirOverrideEnv(env: Record<string, string | undefined> = process.env): string | undefined {
+	return env.USINGOPEN_CODING_AGENT_DIR ?? env.PI_CODING_AGENT_DIR;
+}
+
 function getProfileAgentDir(profile: string): string {
 	return path.join(getProfileConfigRoot(profile), "agent");
 }
@@ -508,7 +516,7 @@ let activeProfile = readProfileFromEnvSafe();
 function resolveActiveAgentDirOverride(): string | undefined {
 	return activeProfile
 		? undefined
-		: resolvePreProfileAgentDir(undefined, process.env.PI_CODING_AGENT_DIR, readPiProfileFromEnvSafe());
+		: resolvePreProfileAgentDir(undefined, getAgentDirOverrideEnv(), readPiProfileFromEnvSafe());
 }
 
 let dirs = new DirResolver({
@@ -528,7 +536,7 @@ let dirs = new DirResolver({
  */
 let preProfileAgentDirEnv: string | undefined = resolvePreProfileAgentDir(
 	activeProfile,
-	process.env.PI_CODING_AGENT_DIR,
+	getAgentDirOverrideEnv(),
 	activeProfile ?? readPiProfileFromEnvSafe(),
 );
 // Anchor home for the resolver. Captured at module load to stay stable across
@@ -585,7 +593,7 @@ export function setAgentDir(dir: string): void {
 export function __resetProfileSnapshotForTests(): void {
 	preProfileAgentDirEnv = resolvePreProfileAgentDir(
 		activeProfile,
-		process.env.PI_CODING_AGENT_DIR,
+		getAgentDirOverrideEnv(),
 		activeProfile ?? readPiProfileFromEnvSafe(),
 	);
 }
@@ -613,7 +621,7 @@ export function setProfile(profile: string | undefined): void {
 		// entered the picture, not the state between two activations.
 		preProfileAgentDirEnv = resolvePreProfileAgentDir(
 			undefined,
-			process.env.PI_CODING_AGENT_DIR,
+			getAgentDirOverrideEnv(),
 			readPiProfileFromEnvSafe(),
 		);
 	}

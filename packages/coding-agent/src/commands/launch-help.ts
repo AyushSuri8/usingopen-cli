@@ -18,9 +18,9 @@ export const launchHelp = {
 		model: Flags.string({
 			description: 'Model to use (fuzzy match: "opus", "gpt-5.2", or "openai/gpt-5.2")',
 		}),
-		smol: Flags.string({ description: "Smol/fast model for lightweight tasks (or PI_SMOL_MODEL env)" }),
-		slow: Flags.string({ description: "Slow/reasoning model for thorough analysis (or PI_SLOW_MODEL env)" }),
-		plan: Flags.string({ description: "Plan model for architectural planning (or PI_PLAN_MODEL env)" }),
+		smol: Flags.string({ description: "Smol/fast model for lightweight tasks (or USINGOPEN_SMOL_MODEL env)" }),
+		slow: Flags.string({ description: "Slow/reasoning model for thorough analysis (or USINGOPEN_SLOW_MODEL env)" }),
+		plan: Flags.string({ description: "Plan model for architectural planning (or USINGOPEN_PLAN_MODEL env)" }),
 		goal: Flags.string({
 			description:
 				"Start fresh in goal mode (interactive only; bypasses autoResume; no positional prompt, startup plan mode, or explicit resume)",

@@ -1894,6 +1894,7 @@ export async function runRootCommand(
 			modelRegistry.hydrateCredentialScopedModelCaches(),
 		);
 		if (parsedArgs.noPty || parsedArgs.mode === "rpc-ui") {
+			Bun.env.USINGOPEN_NO_PTY = "1";
 			Bun.env.PI_NO_PTY = "1";
 		}
 		if (
@@ -1909,9 +1910,9 @@ export async function runRootCommand(
 		logger.time("initializeWithSettings", initializeWithSettings, settingsInstance);
 
 		// Apply model role overrides from CLI args or env vars (ephemeral, not persisted)
-		const smolModel = parsedArgs.smol ?? $env.PI_SMOL_MODEL;
-		const slowModel = parsedArgs.slow ?? $env.PI_SLOW_MODEL;
-		const planModel = parsedArgs.plan ?? $env.PI_PLAN_MODEL;
+		const smolModel = parsedArgs.smol ?? $env.USINGOPEN_SMOL_MODEL ?? $env.PI_SMOL_MODEL;
+		const slowModel = parsedArgs.slow ?? $env.USINGOPEN_SLOW_MODEL ?? $env.PI_SLOW_MODEL;
+		const planModel = parsedArgs.plan ?? $env.USINGOPEN_PLAN_MODEL ?? $env.PI_PLAN_MODEL;
 		if (smolModel || slowModel || planModel) {
 			settingsInstance.overrideModelRoles({
 				smol: smolModel,
@@ -2381,7 +2382,7 @@ export async function runRootCommand(
 				isInteractive,
 				resuming: Boolean(parsedArgs.continue || parsedArgs.resume || parsedArgs.fork || foreignSource),
 				quiet: cfgStartupQuiet.get(settingsInstance),
-				timing: Boolean($env.PI_TIMING),
+				timing: Boolean($env.USINGOPEN_TIMING || $env.PI_TIMING),
 				stdinIsTTY: process.stdin.isTTY,
 				stdoutIsTTY: process.stdout.isTTY,
 			});
@@ -2580,7 +2581,7 @@ export async function runRootCommand(
 					notifs.push({ kind: "warn", message: pythonEvalWarning });
 				}
 
-				if ($env.PI_TIMING) {
+				if ($env.USINGOPEN_TIMING || $env.PI_TIMING) {
 					logger.printTimings();
 					if (logger.shouldExitAfterTimings()) {
 						process.exit(0);
@@ -2618,9 +2619,9 @@ export async function runRootCommand(
 			} else {
 				// Branch-only single-shot runner: keep print-mode code out of normal interactive startup.
 				stopStartupWatchdog();
-				// PI_TIMING prints the tree after the run; otherwise stop recording now so a
+				// USINGOPEN_TIMING prints the tree after the run; otherwise stop recording now so a
 				// long `-p` run's subagents do not keep growing it.
-				if (!$env.PI_TIMING) logger.endTiming();
+				if (!($env.USINGOPEN_TIMING || $env.PI_TIMING)) logger.endTiming();
 				const runPrintMode: RunPrintMode = (await import("./modes/print-mode")).runPrintMode;
 				const exitCode = await runPrintMode(session, {
 					mode,
@@ -2631,7 +2632,7 @@ export async function runRootCommand(
 					planYolo: parsedArgs.planYolo,
 					mcpManager,
 				});
-				if ($env.PI_TIMING) {
+				if ($env.USINGOPEN_TIMING || $env.PI_TIMING) {
 					logger.printTimings();
 				}
 				await disposeSessionQuietly(session);

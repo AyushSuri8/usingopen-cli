@@ -2,7 +2,7 @@
  * Module-load timing preload.
  *
  * `bun --preload .../module-timer.ts <entry>` installs Bun plugin hooks (only
- * when `PI_TIMING` is set) that record an inclusive module window plus resolved
+ * when `USINGOPEN_TIMING` (or its legacy `PI_TIMING` alias) is set) that record an inclusive module window plus resolved
  * static child edges:
  *
  *   onLoad start → appended end marker after the module's top-level body
@@ -105,7 +105,7 @@ function addImportEdges(importsByPath: Map<string, Set<string>>, importer: strin
 	}
 }
 
-if (process.env.PI_TIMING) {
+if (process.env.USINGOPEN_TIMING || process.env.PI_TIMING) {
 	const buffer = moduleLoadBuffer();
 	const starts = new Map<string, number>();
 	const bodyStarts = new Map<string, number>();

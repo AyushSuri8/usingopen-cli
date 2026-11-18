@@ -46,10 +46,10 @@ import mutationTaskTemplate from "./prompts/mutation-task.md" with { type: "text
 import structuralTaskTemplate from "./prompts/structural-task.md" with { type: "text" };
 
 const SUPPORTED_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
-using DEFAULT_SOURCE_REPO_DIR = TempDir.createSync("@pi-mono-source");
+using DEFAULT_SOURCE_REPO_DIR = TempDir.createSync("@usingopen-source");
 const DEFAULT_OUTPUT = path.join(import.meta.dir, "../fixtures.tar.gz");
 /** Default when no `--typescript-dir` is passed: shallow-clone this repo and scan `packages/`. */
-const DEFAULT_SOURCE_REPO_URL = "https://github.com/badlogic/pi-mono.git";
+const DEFAULT_SOURCE_REPO_URL = "https://github.com/AyushSuri8/usingopen-cli.git";
 
 const EXCLUDE_DIRS = new Set([
 	"__tests__",

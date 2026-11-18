@@ -62,14 +62,14 @@ export function getExtraHelpText(): string {
   TYPESAFE_API_KEY           - TypeSafe System One judgments (auto thinking, unexpected-stop, AI staging, eval judge())
 
   ${chalk.dim("# Configuration")}
-  USINGOPEN_PROFILE                 - Named profile for isolated agent state (same as --profile)
+  USINGOPEN_PROFILE          - Named profile for isolated agent state (same as --profile)
   Use \`usingopen --profile <name> --alias <command>\` to create a shell shortcut for a profile
-  PI_CODING_AGENT_DIR        - Session storage directory (default: ~/${CONFIG_DIR_NAME}/agent)
-  PI_PACKAGE_DIR             - Override package directory (for Nix/Guix store paths)
-  PI_SMOL_MODEL              - Override smol/fast model (see --smol)
-  PI_SLOW_MODEL              - Override slow/reasoning model (see --slow)
-  PI_PLAN_MODEL              - Override planning model (see --plan)
-  PI_NO_PTY                  - Disable PTY-based interactive bash execution
+  USINGOPEN_CODING_AGENT_DIR - Session storage directory (default: ~/${CONFIG_DIR_NAME}/agent)
+  USINGOPEN_PACKAGE_DIR      - Override package directory (for Nix/Guix store paths)
+  USINGOPEN_SMOL_MODEL       - Override smol/fast model (see --smol)
+  USINGOPEN_SLOW_MODEL       - Override slow/reasoning model (see --slow)
+  USINGOPEN_PLAN_MODEL       - Override planning model (see --plan)
+  USINGOPEN_NO_PTY           - Disable PTY-based interactive bash execution
   For complete environment variable reference, see:
   ${chalk.dim("docs/environment-variables.md")}
 ${chalk.bold("Available Tools (default-enabled unless noted):")}
