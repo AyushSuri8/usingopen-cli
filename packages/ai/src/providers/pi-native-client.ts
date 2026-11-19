@@ -16,7 +16,8 @@
  * itself stays credential-free.
  */
 import * as os from "node:os";
-import { getAppName, getInstallId, readSseJson } from "@usingopen/utils";
+import { getAppName, getInstallId, readSseJson, VERSION } from "@usingopen/utils";
+import { CLIENT_HEADER_NAMES } from "@usingopen/wire";
 import * as AIError from "../error";
 import type {
 	Api,
@@ -80,6 +81,9 @@ async function decodeGatewayError(response: Response): Promise<AIError.AuthGatew
 	}
 	if (typeof body === "object" && body !== null && "error" in body) {
 		const err = (body as { error: unknown }).error;
+		if (typeof err === "string" && err.length > 0) {
+			return new AIError.AuthGatewayError(err, status, response.headers);
+		}
 		if (typeof err === "object" && err !== null) {
 			const message = (err as { message?: unknown }).message;
 			const type = (err as { type?: unknown }).type;
@@ -117,21 +121,26 @@ function resolveStreamUrl(model: Model<Api>): string {
 function buildHeaders(model: Model<Api>, apiKey: string | undefined): Record<string, string> {
 	const installId = getInstallId();
 	const hostname = os.hostname().replace(/[^\x20-\x7e]/g, "?");
+	const app = getAppName();
 	const headers: Record<string, string> = {
 		"Content-Type": "application/json",
 		Accept: "text/event-stream",
-		// Usage-attribution identity: the gateway reports this request's token
-		// burn to the broker under the ORIGINATING client, not the gateway host.
-		// Attribution-only — the gateway never forwards these headers upstream.
-		// Header values must stay ISO-8859-1-safe, hence the hostname scrub.
-		"x-usingopen-install-id": installId,
-		"x-usingopen-hostname": hostname,
-		"x-usingopen-app": getAppName(),
+		// Usage-attribution and client-version identity: the gateway reports this
+		// request's token burn to the broker under the ORIGINATING client and
+		// evaluates minimum-version policy against the client version.
+		// Attribution/control-only — the gateway never forwards these headers
+		// upstream. Header values must stay ISO-8859-1-safe, hence the hostname scrub.
+		[CLIENT_HEADER_NAMES.installId]: installId,
+		[CLIENT_HEADER_NAMES.hostname]: hostname,
+		[CLIENT_HEADER_NAMES.app]: app,
+		[CLIENT_HEADER_NAMES.version]: VERSION,
 		// Dual-send during the rollout: gateways that only know the pre-rename
-		// x-omp-* names still attribute correctly. Remove after the flip.
-		"x-omp-install-id": installId,
-		"x-omp-hostname": hostname,
-		"x-omp-app": getAppName(),
+		// x-omp-* names still attribute and enforce version correctly. Remove
+		// after the flip.
+		[CLIENT_HEADER_NAMES.legacyInstallId]: installId,
+		[CLIENT_HEADER_NAMES.legacyHostname]: hostname,
+		[CLIENT_HEADER_NAMES.legacyApp]: app,
+		[CLIENT_HEADER_NAMES.legacyVersion]: VERSION,
 		...model.headers,
 	};
 	if (apiKey && !headers.Authorization) {

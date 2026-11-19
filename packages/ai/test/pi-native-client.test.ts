@@ -12,6 +12,8 @@ import type {
 	ProviderResponseMetadata,
 } from "@usingopen/ai/types";
 import { buildModel } from "@usingopen/catalog/build";
+import { VERSION } from "@usingopen/utils";
+import { CLIENT_HEADER_NAMES } from "@usingopen/wire";
 
 function sseBytes(events: AssistantMessageEvent[]): Uint8Array {
 	const encoder = new TextEncoder();
@@ -188,6 +190,8 @@ describe("streamPiNative request shape", () => {
 		expect(headers["Content-Type"]).toBe("application/json");
 		expect(headers.Accept).toBe("text/event-stream");
 		expect(headers.Authorization).toBe("Bearer gw-bearer");
+		expect(headers[CLIENT_HEADER_NAMES.version]).toBe(VERSION);
+		expect(headers[CLIENT_HEADER_NAMES.legacyVersion]).toBe(VERSION);
 
 		const body = JSON.parse(captured.init?.body as string);
 		// Provider-qualified to avoid cross-provider id collisions; the gateway
@@ -403,6 +407,19 @@ describe("streamPiNative event flow", () => {
 
 		const stream = streamPiNative(fakeModel(), baseContext, { apiKey: "k", fetch: fetchImpl });
 		await expect(stream.result()).rejects.toThrow(/no credential/);
+	});
+
+	it("surfaces a string 426 error envelope from a version-gated backend", async () => {
+		const fetchImpl: FetchImpl = (async () =>
+			new Response(
+				JSON.stringify({
+					error: "Client version 18.8.0 is below the minimum supported version 18.8.12",
+					required_version: "18.8.12",
+				}),
+				{ status: 426, headers: { "Content-Type": "application/json" } },
+			)) as FetchImpl;
+		const stream = streamPiNative(fakeModel(), baseContext, { apiKey: "k", fetch: fetchImpl });
+		await expect(stream.result()).rejects.toThrow(/below the minimum supported version 18\.8\.12/);
 	});
 
 	it("falls back to plain text on a non-JSON error body", async () => {

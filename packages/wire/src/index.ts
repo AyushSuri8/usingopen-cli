@@ -451,3 +451,4 @@ export * from "./stream";
 export * from "./ads";
 export * from "./agent-session";
 export * from "./tsp";
+export * from "./version";
