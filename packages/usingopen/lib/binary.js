@@ -177,10 +177,21 @@ export function looksExecutable(bytes) {
 	return [0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe, 0xcafebabe, 0xbebafeca].includes(magic);
 }
 
-async function fetchChecksums(base, tag, asset) {
+/** A downloaded binary disagreed with the published digest; never silently substitute another release. */
+export class ChecksumMismatchError extends Error {
+	constructor(message) {
+		super(message);
+		this.name = "ChecksumMismatchError";
+	}
+}
+
+async function fetchChecksums(base, tag, asset, fresh = false) {
+	// Release-asset CDNs can serve a stale SHA256SUMS.txt briefly after a
+	// republish; a cache-busting query gets the current one on retry.
+	const suffix = fresh ? `?cb=${Date.now()}` : "";
 	for (const name of ["SHA256SUMS.txt", "SHA256SUMS"]) {
 		try {
-			const response = await fetch(`${base}/download/${tag}/${name}`);
+			const response = await fetch(`${base}/download/${tag}/${name}${suffix}`);
 			if (!response.ok) continue;
 			const digest = expectedChecksum(await response.text(), asset);
 			if (digest) return digest;
@@ -239,7 +250,13 @@ export async function downloadBinary(base, tag, asset, log = () => {}) {
 		const digest = hash.digest("hex");
 		expected = await fetchChecksums(base, tag, asset);
 		if (expected && expected !== digest) {
-			throw new Error(`checksum mismatch for ${asset}: expected ${expected}, got ${digest}`);
+			const refreshed = await fetchChecksums(base, tag, asset, true);
+			if (refreshed && refreshed === digest) {
+				log(`${asset}: checksums refreshed after mismatch`);
+				expected = refreshed;
+			} else {
+				throw new ChecksumMismatchError(`checksum mismatch for ${asset}: expected ${expected}, got ${digest}`);
+			}
 		}
 		await fs.promises.chmod(staging, 0o755);
 		// Rename last: an interrupted download never leaves a half-written binary
@@ -265,6 +282,11 @@ export async function ensureBinary(log = () => {}) {
 			if (existing?.isFile()) return destination;
 			return await downloadBinary(channel.base, tag, channel.asset, log);
 		} catch (error) {
+			if (error instanceof ChecksumMismatchError) {
+				// A branded asset that fails verification must not be replaced by
+				// an unrelated upstream binary.
+				throw error;
+			}
 			lastError = error;
 			log(`${channel.asset} unavailable (${describe(error)}); trying the next release channel`);
 		}

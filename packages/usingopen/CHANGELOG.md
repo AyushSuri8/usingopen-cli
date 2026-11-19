@@ -13,4 +13,5 @@
 
 ### Fixed
 
+- A stale cached `SHA256SUMS.txt` no longer makes the launcher silently fall back to the upstream `omp` binary: it retries with a cache-busted manifest fetch, and a persistent checksum mismatch now fails with a clear error.
 - `scripts/install.sh` no longer targets the non-existent `usingopen.com` artifact host: it resolves the newest tag from GitHub, downloads the `usingopen-<platform>-<arch>` release asset (falling back to the upstream `omp-` asset), and verifies it against `SHA256SUMS.txt`.
