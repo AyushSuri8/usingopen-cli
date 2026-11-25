@@ -305,7 +305,10 @@ function Install-Binary {
     $BinaryUrl = "$DlBase/download/$Latest/$BinaryName"
     Write-Host "Downloading $BinaryName..."
     $OutPath = Join-Path $InstallDir "usingopen.exe"
-    Invoke-WebRequest -Uri $BinaryUrl -OutFile $OutPath -TimeoutSec 900
+    # Stage the download so a failed or tampered fetch never replaces a working
+    # binary, and move it into place only after verification.
+    $DownloadPath = "$OutPath.download"
+    Invoke-WebRequest -Uri $BinaryUrl -OutFile $DownloadPath -TimeoutSec 900
 
     # Verify against the published SHA256SUMS when the host serves one.
     try {
@@ -317,8 +320,9 @@ function Install-Binary {
         $Expected = ($Checksums -split "\r?\n" | Where-Object { $_ -match "\s$([regex]::Escape($BinaryName))$" } | Select-Object -First 1)
         if ($Expected) {
             $ExpectedHash = ($Expected.Trim() -split "\s+")[0]
-            $ActualHash = (Get-FileHash -Path $OutPath -Algorithm SHA256).Hash.ToLower()
+            $ActualHash = (Get-FileHash -Path $DownloadPath -Algorithm SHA256).Hash.ToLower()
             if ($ActualHash -ne $ExpectedHash.ToLower()) {
+                Remove-Item -Path $DownloadPath -Force -ErrorAction SilentlyContinue
                 throw "Checksum mismatch for ${BinaryName}: expected $ExpectedHash, got $ActualHash"
             }
             Write-Host "[OK] Checksum verified" -ForegroundColor Green
@@ -329,6 +333,8 @@ function Install-Binary {
         if ($_.Exception.Message -like "Checksum mismatch*") { throw }
         Write-Host "[WARN] SHA256SUMS unavailable; skipping verification" -ForegroundColor Yellow
     }
+
+    Move-Item -Path $DownloadPath -Destination $OutPath -Force
 
     Write-Host ""
     Write-Host "[OK] Installed usingopen to $OutPath" -ForegroundColor Green
