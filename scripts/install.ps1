@@ -309,8 +309,12 @@ function Install-Binary {
 
     # Verify against the published SHA256SUMS when the host serves one.
     try {
-        $Checksums = (Invoke-WebRequest -Uri "$DlBase/download/$Latest/SHA256SUMS.txt" -TimeoutSec 60 -UseBasicParsing).Content
-        $Expected = ($Checksums -split "`n" | Where-Object { $_ -match "\s$([regex]::Escape($BinaryName))$" } | Select-Object -First 1)
+        $ChecksumBody = (Invoke-WebRequest -Uri "$DlBase/download/$Latest/SHA256SUMS.txt" -TimeoutSec 60 -UseBasicParsing).Content
+        # PowerShell 7 hands back a byte[] when the response is not typed as text
+        # (GitHub's release download does this); Windows PowerShell 5.1 and typed
+        # responses give a string.
+        $Checksums = if ($ChecksumBody -is [byte[]]) { [System.Text.Encoding]::UTF8.GetString($ChecksumBody) } else { [string]$ChecksumBody }
+        $Expected = ($Checksums -split "\r?\n" | Where-Object { $_ -match "\s$([regex]::Escape($BinaryName))$" } | Select-Object -First 1)
         if ($Expected) {
             $ExpectedHash = ($Expected.Trim() -split "\s+")[0]
             $ActualHash = (Get-FileHash -Path $OutPath -Algorithm SHA256).Hash.ToLower()
