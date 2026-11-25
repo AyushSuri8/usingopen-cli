@@ -45,7 +45,7 @@ function changelogUtilsStubPlugin(): BunPlugin {
 	return {
 		name: "changelog-utils-stub",
 		setup(build) {
-			build.onResolve({ filter: /^@usingopen\/pi-utils$/ }, () => ({ path: utilsStubPath }));
+			build.onResolve({ filter: /^@usingopen\/(?:pi-)?utils$/ }, () => ({ path: utilsStubPath }));
 			build.onResolve({ filter: /^\.\.\/config$/ }, args =>
 				args.importer.replaceAll("\\", "/").endsWith("/utils/changelog.ts") ? { path: utilsStubPath } : undefined,
 			);
