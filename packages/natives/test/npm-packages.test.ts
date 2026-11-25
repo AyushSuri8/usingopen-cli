@@ -25,7 +25,7 @@ describe("generated native npm leaf packages", () => {
 		expect(manifest.license).toBe("MIT");
 		expect(manifest.repository).toEqual({
 			type: "git",
-			url: "git+https://github.com/usingopen/usingopen.git",
+			url: "git+https://github.com/AyushSuri8/usingopen-cli.git",
 			directory: "packages/natives",
 		});
 		expect("exports" in manifest).toBe(false);
