@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { ChecksumMismatchError, downloadBinary, ensureBinary, releaseChannels } from "./binary.js";
+import { cachePath, ChecksumMismatchError, downloadBinary, ensureBinary, releaseChannels } from "./binary.js";
 
 const PAYLOAD = Buffer.concat([Buffer.from([0x7f, 0x45, 0x4c, 0x46]), Buffer.from("usingopen test payload")]);
 const DIGEST = createHash("sha256").update(PAYLOAD).digest("hex");
@@ -71,5 +71,15 @@ describe("launcher checksum verification", () => {
 			return new Response("not found", { status: 404 });
 		};
 		await expect(ensureBinary()).rejects.toBeInstanceOf(ChecksumMismatchError);
+	});
+
+	it("keeps hostile tags inside the cache root", async () => {
+		const destination = cachePath("https://github.com/x/y/releases", "v../../escape", "bin");
+		expect(destination.startsWith(path.join(cacheRoot, "usingopen") + path.sep)).toBe(true);
+	});
+
+	it("rejects a pinned tag that tries to traverse the cache", async () => {
+		process.env.USINGOPEN_RELEASE_TAG = "v../../escape";
+		await expect(ensureBinary()).rejects.toThrow(/invalid release tag/);
 	});
 });

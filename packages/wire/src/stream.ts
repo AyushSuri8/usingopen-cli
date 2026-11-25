@@ -14,7 +14,9 @@
  */
 
 /** Default stream server; its host route derives the channel from the bearer identity. */
-export const DEFAULT_STREAM_URL = "https://live.usingopen.com";
+// UsingOpen subdomains are not provisioned yet; the maintained stream host is
+// the working default until they are.
+export const DEFAULT_STREAM_URL = "https://live.omp.sh";
 
 /** Protocol version carried in `hello`/`snapshot`; the server rejects mismatches. */
 export const STREAM_PROTO = 1;

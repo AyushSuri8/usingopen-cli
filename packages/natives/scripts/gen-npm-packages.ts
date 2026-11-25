@@ -100,7 +100,7 @@ export function buildLeafManifest({ tag, os, cpu, files, version }: BuildLeafMan
 		license: "MIT",
 		repository: {
 			type: "git",
-			url: "git+https://github.com/usingopen/usingopen.git",
+			url: "git+https://github.com/AyushSuri8/usingopen-cli.git",
 			directory: "packages/natives",
 		},
 		engines: {

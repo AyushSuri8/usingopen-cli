@@ -207,4 +207,4 @@ jobs:
             LICENSE \
             THIRD-PARTY-NOTICES.txt
       - name: Upload assets
-        run: gh release upload "$TAG" packages/coding-agent/binaries/usingopen-* SHA256SUMS.txt --clobber
+        run: gh release upload "$TAG" packages/coding-agent/binaries/usingopen-* SHA256SUMS.txt LICENSE THIRD-PARTY-NOTICES.txt --clobber

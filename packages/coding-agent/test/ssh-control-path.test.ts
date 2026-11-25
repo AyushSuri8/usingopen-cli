@@ -9,10 +9,10 @@ import { assertOwnerPrivateDir, ownerPrivateDirError } from "../src/utils/owner-
 // past macOS's 104-byte sun_path once OpenSSH appends its mux temp suffix.
 describe("SSH control-path budget (#9070)", () => {
 	it("rejects a control dir that overflows sun_path once %C.sock + mux temp bind is added", () => {
-		// A representative macOS named-profile control dir is 48 bytes; the
-		// temporary bind path is 48 + 63 = 111 >= 104, so it must not fit.
+		// A representative macOS named-profile control dir is 54 bytes; the
+		// temporary bind path is 54 + 63 = 117 >= 104, so it must not fit.
 		const profileDir = "/Users/arthur/.usingopen/profiles/upstream/ssh-control";
-		expect(Buffer.byteLength(profileDir)).toBe(48);
+		expect(Buffer.byteLength(profileDir)).toBe(54);
 		expect(controlPathFitsBudget(profileDir, "darwin")).toBe(false);
 		// The default (unprofiled) macOS dir stays within budget.
 		expect(controlPathFitsBudget("/Users/arthur/.usingopen/ssh-control", "darwin")).toBe(true);
@@ -34,16 +34,16 @@ describe("SSH control-path budget (#9070)", () => {
 });
 
 describe("sshControlFallbackDir", () => {
-	it("is deterministic and leaves 11 bytes of macOS sun_path slack", () => {
+	it("is deterministic and leaves 5 bytes of macOS sun_path slack", () => {
 		const canonicalDir = "/Users/arthur/.usingopen/profiles/upstream/ssh-control";
 		const a = sshControlFallbackDir(canonicalDir, 501);
 		const b = sshControlFallbackDir(canonicalDir, 501);
 		expect(a).toBe(b);
-		expect(a).toBe("/tmp/usingopen-5434354bc38f9a50fbbd");
-		expect(Buffer.byteLength(a)).toBe(29);
+		expect(a).toBe("/tmp/usingopen-e261342d9653b7a12d5c");
+		expect(Buffer.byteLength(a)).toBe(35);
 		const tempBind = path.join(a, `${"a".repeat(40)}.sock.${"b".repeat(16)}`);
-		expect(Buffer.byteLength(tempBind)).toBe(92);
-		expect(103 - Buffer.byteLength(tempBind)).toBe(11);
+		expect(Buffer.byteLength(tempBind)).toBe(98);
+		expect(103 - Buffer.byteLength(tempBind)).toBe(5);
 		expect(controlPathFitsBudget(a, "darwin")).toBe(true);
 	});
 
@@ -68,7 +68,7 @@ describe("resolveSshControlDir", () => {
 	it("relocates to the bounded shared fallback when the canonical dir overflows", () => {
 		const canonicalDir = "/Users/arthur/.usingopen/profiles/upstream/ssh-control";
 		const choice = resolveSshControlDir({ canonicalDir, platform: "darwin", uid: 501, tmpBase: "/tmp" });
-		expect(choice).toEqual({ dir: "/tmp/usingopen-5434354bc38f9a50fbbd", shared: true });
+		expect(choice).toEqual({ dir: "/tmp/usingopen-e261342d9653b7a12d5c", shared: true });
 		expect(controlPathFitsBudget(choice.dir, "darwin")).toBe(true);
 	});
 

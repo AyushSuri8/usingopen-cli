@@ -15,7 +15,9 @@
  */
 
 /** Default registry; `skills.registryUrl` overrides it. */
-export const DEFAULT_SKILLS_URL = "https://skills.usingopen.com";
+// UsingOpen subdomains are not provisioned yet; the maintained registry keeps
+// skill install/search/publish working until they are.
+export const DEFAULT_SKILLS_URL = "https://skills.omp.sh";
 
 /** Scopes are Stencil usernames (or registry orgs): lowercase letters, digits, underscores; 3–32 chars. */
 export const SKILL_SCOPE_RE = /^[a-z0-9][a-z0-9_]{2,31}$/;
@@ -69,7 +71,7 @@ export const SKILL_HEADERS = {
 } as const;
 
 /** Audience CI must request for GitHub Actions OIDC tokens. */
-export const SKILLS_OIDC_AUDIENCE = "skills.usingopen.com";
+export const SKILLS_OIDC_AUDIENCE = "skills.omp.sh";
 
 /** Env var holding a registry publish token for CI (`sks_…`); wins over the Stencil login. */
 export const SKILLS_TOKEN_ENV = "SKILLS_TOKEN";

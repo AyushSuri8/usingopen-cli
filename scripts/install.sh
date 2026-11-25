@@ -300,29 +300,44 @@ install_binary() {
     echo "Using version: $LATEST"
 
     mkdir -p "$INSTALL_DIR"
-    # Download the release asset
+    # Download to a staging path and rename only after verification: an
+    # interrupted or tampered download must never replace a working binary.
     BINARY_URL="${BINARY_BASE}/download/${LATEST}/${BINARY}"
+    STAGING="${INSTALL_DIR}/.usingopen.download.$$"
+    trap 'rm -f "$STAGING"' EXIT
     echo "Downloading ${BINARY}..."
-    curl -fsSL --connect-timeout 10 --speed-limit 1024 --speed-time 30 "$BINARY_URL" -o "${INSTALL_DIR}/usingopen"
-    chmod +x "${INSTALL_DIR}/usingopen"
+    curl -fsSL --connect-timeout 10 --speed-limit 1024 --speed-time 30 "$BINARY_URL" -o "$STAGING"
+    chmod +x "$STAGING"
 
     # Verify the download against the published SHA256SUMS when the host serves
     # one (all release artifacts ship together); skip with a warning otherwise.
+    # `sha256sum` is coreutils (Linux); macOS ships `shasum`, so accept either.
     if CHECKSUMS=$(curl -fsSL --connect-timeout 10 --max-time 60 "${BINARY_BASE}/download/${LATEST}/SHA256SUMS.txt" 2>/dev/null); then
         EXPECTED=$(printf '%s\n' "$CHECKSUMS" | awk -v asset="$BINARY" '$2 == asset { print $1; exit }')
-        if [ -n "$EXPECTED" ] && command -v sha256sum >/dev/null 2>&1; then
-            ACTUAL=$(sha256sum "${INSTALL_DIR}/usingopen" | cut -d' ' -f1)
-            if [ "$ACTUAL" != "$EXPECTED" ]; then
+        if [ -n "$EXPECTED" ]; then
+            ACTUAL=""
+            if command -v sha256sum >/dev/null 2>&1; then
+                ACTUAL=$(sha256sum "$STAGING" | cut -d' ' -f1)
+            elif command -v shasum >/dev/null 2>&1; then
+                ACTUAL=$(shasum -a 256 "$STAGING" | cut -d' ' -f1)
+            fi
+            if [ -z "$ACTUAL" ]; then
+                echo "Warning: neither sha256sum nor shasum is available; skipping checksum verification"
+            elif [ "$ACTUAL" != "$EXPECTED" ]; then
                 echo "✗ Checksum mismatch for ${BINARY}: expected ${EXPECTED}, got ${ACTUAL}"
                 exit 1
+            else
+                echo "✓ Checksum verified"
             fi
-            echo "✓ Checksum verified"
         else
             echo "Warning: no checksum entry for ${BINARY}; skipping verification"
         fi
     else
         echo "Warning: SHA256SUMS.txt unavailable; skipping verification"
     fi
+
+    mv "$STAGING" "${INSTALL_DIR}/usingopen"
+    trap - EXIT
 
     # Verify the freshly installed binary can actually start before reporting
     # success. Bun's musl-target binaries link libstdc++/libgcc dynamically,

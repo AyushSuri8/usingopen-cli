@@ -26,7 +26,7 @@ import { $which } from "@usingopen/utils";
 import type { TerminalId, TerminalNotification } from "./terminal-capabilities";
 
 /** Application name surfaced as the notification source. */
-const APP_NAME = "UsingOpen";
+const APP_NAME = "usingopen";
 
 /** Resolved notifier binary used to fan a notification out to D-Bus. */
 export type DesktopNotifierKind = "notify-send" | "gdbus";

@@ -423,10 +423,12 @@ export const ROOM_KEY_BYTES = 32;
 export const WRITE_TOKEN_BYTES = 16;
 
 /** Default public relay; bare `<roomId>.<key>` links resolve against it. */
-export const DEFAULT_RELAY_URL = "wss://relay.usingopen.com";
+// UsingOpen subdomains are not provisioned yet; until they are, point at the
+// maintained relay so /collab and share links work out of the box.
+export const DEFAULT_RELAY_URL = "wss://my.omp.sh";
 
 /** Default share viewer/upload base; `/share` links resolve against `<base>/<id>#<key>`. */
-export const DEFAULT_SHARE_URL = "https://relay.usingopen.com/s";
+export const DEFAULT_SHARE_URL = "https://my.omp.sh/s";
 
 export interface ParsedCollabLink {
 	/** wss://host[:port]/r/<roomId> — no query, no fragment. */

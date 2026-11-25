@@ -1,12 +1,12 @@
 # USINGOPEN Coding Agent Installer for Windows
-# Usage: irm https://usingopen.com/dl/install.ps1 | iex
+# Usage: irm https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.ps1 | iex
 #
 # Or with options:
-#   & ([scriptblock]::Create((irm https://usingopen.com/dl/install.ps1))) -Source
-#   & ([scriptblock]::Create((irm https://usingopen.com/dl/install.ps1))) -Binary
-#   & ([scriptblock]::Create((irm https://usingopen.com/dl/install.ps1))) -Source -Ref v3.20.1
-#   & ([scriptblock]::Create((irm https://usingopen.com/dl/install.ps1))) -Source -Ref main
-#   & ([scriptblock]::Create((irm https://usingopen.com/dl/install.ps1))) -Binary -Ref v3.20.1
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.ps1))) -Source
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.ps1))) -Binary
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.ps1))) -Source -Ref v3.20.1
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.ps1))) -Source -Ref main
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.ps1))) -Binary -Ref v3.20.1
 
 param(
     [switch]$Source,
@@ -24,9 +24,10 @@ if ($PSVersionTable.PSVersion -lt [version]"5.1") {
     throw "Windows PowerShell 5.1 or newer is required (found $($PSVersionTable.PSVersion)). Install PowerShell 7 from https://aka.ms/powershell and re-run the installer."
 }
 
-$RepoUrl = "https://git.usingopen.com/usingopen/usingopen"
-$DlBase = "https://usingopen.com/dl"
-$Package = "@usingopen/coding-agent"
+$RepoUrl = "https://github.com/AyushSuri8/usingopen-cli.git"
+$RepoSlug = "AyushSuri8/usingopen-cli"
+$DlBase = "https://github.com/AyushSuri8/usingopen-cli/releases"
+$Package = "usingopen"
 $InstallDir = if ($env:USINGOPEN_INSTALL_DIR) { $env:USINGOPEN_INSTALL_DIR } elseif ($env:PI_INSTALL_DIR) { $env:PI_INSTALL_DIR } else { "$env:LOCALAPPDATA\usingopen" }
 # Windows PowerShell 5.1 (.NET Framework) does not reliably resolve
 # [System.Runtime.InteropServices.RuntimeInformation] without an
@@ -283,14 +284,14 @@ function Install-ViaBun {
 }
 
 function Install-Binary {
-    # Resolve the release tag from the private artifact host: a plain-text file
-    # holding the latest tag, or an explicit -Ref.
+    # Resolve the release tag from the GitHub release API (the same source the
+    # updater uses), or honor an explicit -Ref.
     if ($Ref) {
         Write-Host "Using release $Ref..."
         $Latest = $Ref
     } else {
         Write-Host "Fetching latest release..."
-        $Latest = (Invoke-WebRequest -Uri "$DlBase/latest" -TimeoutSec 60 -UseBasicParsing).Content.Trim()
+        $Latest = (Invoke-RestMethod -Uri "https://api.github.com/repos/$RepoSlug/releases/latest" -TimeoutSec 60 -Headers @{ "User-Agent" = "usingopen-installer" }).tag_name
     }
 
     if (-not $Latest) {
@@ -300,15 +301,15 @@ function Install-Binary {
 
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-    # Download binary from the private artifact host
-    $BinaryUrl = "$DlBase/$Latest/$BinaryName"
+    # Download the release asset.
+    $BinaryUrl = "$DlBase/download/$Latest/$BinaryName"
     Write-Host "Downloading $BinaryName..."
     $OutPath = Join-Path $InstallDir "usingopen.exe"
     Invoke-WebRequest -Uri $BinaryUrl -OutFile $OutPath -TimeoutSec 900
 
     # Verify against the published SHA256SUMS when the host serves one.
     try {
-        $Checksums = (Invoke-WebRequest -Uri "$DlBase/$Latest/SHA256SUMS" -TimeoutSec 60 -UseBasicParsing).Content
+        $Checksums = (Invoke-WebRequest -Uri "$DlBase/download/$Latest/SHA256SUMS.txt" -TimeoutSec 60 -UseBasicParsing).Content
         $Expected = ($Checksums -split "`n" | Where-Object { $_ -match "\s$([regex]::Escape($BinaryName))$" } | Select-Object -First 1)
         if ($Expected) {
             $ExpectedHash = ($Expected.Trim() -split "\s+")[0]

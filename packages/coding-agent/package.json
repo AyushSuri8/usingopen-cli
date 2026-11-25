@@ -12,7 +12,7 @@
 	],
 	"homepage": "https://usingopen.com",
 	"bugs": {
-		"url": "https://git.usingopen.com/usingopen/usingopen/issues"
+		"url": "https://github.com/AyushSuri8/usingopen-cli/issues"
 	},
 	"license": "MIT",
 	"author": { "name": "UsingOpen", "url": "https://usingopen.com" },
@@ -21,7 +21,7 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://git.usingopen.com/usingopen/usingopen.git",
+		"url": "git+https://github.com/AyushSuri8/usingopen-cli.git",
 		"directory": "packages/coding-agent"
 	},
 	"bin": {

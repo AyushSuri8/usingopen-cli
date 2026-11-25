@@ -33,7 +33,7 @@ import { $, Glob } from "bun";
 import { compareVersions } from "../packages/utils/src/version";
 
 const changelogGlob = new Glob("packages/*/CHANGELOG.md");
-const REPO = process.env.USINGOPEN_REPO ?? process.env.GITHUB_REPOSITORY ?? "usingopen/usingopen";
+const REPO = process.env.USINGOPEN_REPO ?? process.env.GITHUB_REPOSITORY ?? "AyushSuri8/usingopen-cli";
 
 // Canonical ordering used by `fix-changelogs`; unknown categories sort
 // alphabetically after these.

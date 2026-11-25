@@ -8,11 +8,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://git.usingopen.com/usingopen/usingopen.git",
+    "url": "git+https://github.com/AyushSuri8/usingopen-cli.git",
     "directory": "packages/wire"
   },
   "bugs": {
-    "url": "https://git.usingopen.com/usingopen/usingopen/issues"
+    "url": "https://github.com/AyushSuri8/usingopen-cli/issues"
   },
   "keywords": [
     "wire",

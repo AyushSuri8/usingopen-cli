@@ -146,7 +146,7 @@ describe("Agent hub row ordering", () => {
 			const rendered = Bun.stripANSI(hub.render(120).join("\n"));
 			expect(rendered).toContain("No agents in this session");
 			expect(rendered).toContain("Finished, parked, and killed subagents remain with the session");
-			expect(rendered).toContain("Resume that session with usingopen-dev --continue, or spawn a task here.");
+			expect(rendered).toContain("Resume with usingopen-dev --continue, or spawn a task here.");
 		} finally {
 			hub.dispose();
 		}

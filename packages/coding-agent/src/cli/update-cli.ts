@@ -40,11 +40,12 @@ import {
 
 import { cfgUpdateChannel } from "../modes/settings";
 
+const REPO = "AyushSuri8/usingopen-cli";
 const PACKAGE = "@usingopen/coding-agent";
-const HOMEBREW_FORMULA = "usingopen/tap/usingopen";
-const MISE_TOOL = "github:usingopen/usingopen";
+const HOMEBREW_FORMULA = "AyushSuri8/homebrew-tap/usingopen";
+const MISE_TOOL = "github:AyushSuri8/usingopen-cli";
 const NIX_STORE_DIR = "/nix/store";
-const DL_BASE = process.env.USINGOPEN_DL_BASE ?? "https://usingopen.com/dl";
+const GITHUB_API = "https://api.github.com";
 const RELEASE_METADATA_TIMEOUT_MS = 30_000;
 const BINARY_DOWNLOAD_TIMEOUT_MS = 15 * 60_000;
 
@@ -234,7 +235,7 @@ export function shouldForceBinaryUpdate(
 
 /**
  * Select and validate the binary asset from release metadata served by the
- * private artifact host (`usingopen.com/dl`, GitHub-compatible JSON shape).
+ * GitHub release metadata.
  *
  * Draft releases are always rejected. Prereleases are rejected unless
  * `options.allowPrerelease` is set, which the canary channel passes: canary
@@ -283,7 +284,7 @@ export function resolveReleaseBinaryAsset(
 		throw new Error(`Release asset ${binaryName} has an unsupported digest`);
 	}
 
-	const expectedUrl = `${DL_BASE}/${expectedTag}/${binaryName}`;
+	const expectedUrl = `https://github.com/${REPO}/releases/download/${expectedTag}/${binaryName}`;
 	if (asset.browser_download_url !== expectedUrl) {
 		throw new Error(`Release asset ${binaryName} has an unexpected download URL`);
 	}
@@ -376,7 +377,11 @@ async function getReleaseBinaryAsset(
 ): Promise<ReleaseBinaryAsset> {
 	const tag = `v${expectedVersion}`;
 	const token = githubToken ?? (await resolveGitHubToken());
-	const response = await fetchReleaseMetadata(`${DL_BASE}/releases/${encodeURIComponent(tag)}.json`, fetchImpl, token);
+	const response = await fetchReleaseMetadata(
+		`${GITHUB_API}/repos/${REPO}/releases/tags/${encodeURIComponent(tag)}`,
+		fetchImpl,
+		token,
+	);
 	if (response.ok) {
 		return resolveReleaseBinaryAsset(await response.json(), tag, binaryName, { allowPrerelease });
 	}
@@ -385,7 +390,7 @@ async function getReleaseBinaryAsset(
 	}
 
 	const listing = await fetchReleaseMetadata(
-		`${DL_BASE}/releases.json?per_page=${RELEASE_LISTING_PAGE_SIZE}`,
+		`${GITHUB_API}/repos/${REPO}/releases?per_page=${RELEASE_LISTING_PAGE_SIZE}`,
 		fetchImpl,
 		token,
 	);
@@ -921,6 +926,9 @@ async function resolveUpdateTarget(options: { allowPackageManagers: boolean }): 
 /** Bound on `usingopen.rename` hops so a broken pointer chain cannot loop forever. */
 const MAX_RENAME_HOPS = 3;
 
+/** The registry has no such package (404), as opposed to a transient failure. */
+class PackageNotFoundError extends Error {}
+
 async function fetchLatestManifest(
 	pkg: string,
 	registry: NpmRegistry,
@@ -995,9 +1003,8 @@ async function fetchLatestManifest(
 		if (response.status === 404 && channel === "canary") throw noCanary();
 		const authHint =
 			response.status === 401 || response.status === 403 ? "; check the registry credentials in your .npmrc" : "";
-		throw new Error(
-			`Failed to fetch release info for ${pkg}${origin}: ${response.status} ${response.statusText}${authHint}`,
-		);
+		const message = `Failed to fetch release info for ${pkg}${origin}: ${response.status} ${response.statusText}${authHint}`;
+		throw response.status === 404 ? new PackageNotFoundError(message) : new Error(message);
 	}
 
 	if (!isRecord(data) || typeof data.version !== "string") {
@@ -1007,15 +1014,32 @@ async function fetchLatestManifest(
 }
 
 /**
+ * Newest published GitHub release tag for this repository.
+ *
+ * The npm launcher version is bumped independently of the release binaries, so
+ * the agent package can legitimately be absent from npm while releases exist.
+ * This is the version source for standalone-binary installs in that case.
+ */
+async function fetchLatestPublishedTag(fetchImpl: Fetch = fetch): Promise<string | undefined> {
+	const token = await resolveGitHubToken();
+	const response = await fetchReleaseMetadata(`${GITHUB_API}/repos/${REPO}/releases/latest`, fetchImpl, token);
+	if (!response.ok) return undefined;
+	const data: unknown = await response.json();
+	if (!isRecord(data) || typeof data.tag_name !== "string") return undefined;
+	return data.tag_name;
+}
+
+/**
  * Get the latest release info from the npm registry, following `usingopen.rename`
  * pointers ({@link resolveReleaseRename}) when the package has moved to a new
  * npm name. Version, dist, and install names all come from the final manifest
- * in the chain. Uses npm instead of GitHub API to avoid unauthenticated rate
- * limiting.
+ * in the chain.
  *
  * The registry comes from the user's npm/bun configuration
  * ({@link loadNpmRegistryResolver}), so a configured feed is honored for every
- * install method, including standalone binaries.
+ * install method, including standalone binaries. When the agent package is not
+ * published (only the `usingopen` launcher is, for now), the stable channel
+ * falls back to the newest GitHub release tag and installs the binary asset.
  */
 export async function getLatestRelease(
 	options: { timeoutMs?: number; channel?: UpdateChannel; registries?: NpmRegistryResolver } = {},
@@ -1026,7 +1050,24 @@ export async function getLatestRelease(
 	const packages: ReleasePackages = { ...CURRENT_PACKAGES };
 	const visited = new Set([packages.pkg]);
 	let registry = registries(packages.pkg);
-	let latest = await fetchLatestManifest(packages.pkg, registry, timeoutMs, channel);
+	let latest: { version: string; manifest: unknown };
+	try {
+		latest = await fetchLatestManifest(packages.pkg, registry, timeoutMs, channel);
+	} catch (error) {
+		// Only an unpublished npm package falls back; transient registry or
+		// network failures must surface to the caller.
+		if (channel !== "stable" || !(error instanceof PackageNotFoundError)) throw error;
+		const tag = await fetchLatestPublishedTag().catch(() => undefined);
+		if (!tag) throw error;
+		const version = tag.replace(/^v/, "");
+		return {
+			tag: tag.startsWith("v") ? tag : `v${version}`,
+			version,
+			dist: "binary",
+			packages,
+			registry: registry.url,
+		};
+	}
 	for (let hop = 0; hop < MAX_RENAME_HOPS; hop++) {
 		const rename = resolveReleaseRename(latest.manifest);
 		if (!rename || visited.has(rename.pkg)) break;
@@ -2231,8 +2272,8 @@ export async function updateViaShimTakeover(
  */
 function installerHint(): string {
 	return process.platform === "win32"
-		? "& ([scriptblock]::Create((irm https://usingopen.com/install.ps1))) -Binary"
-		: "curl -fsSL https://usingopen.com/install | sh -s -- --binary";
+		? "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.ps1))) -Binary"
+		: "curl -fsSL https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.sh | sh -s -- --binary";
 }
 
 /** Persisted channel, or undefined when settings are unavailable (SDK/test embedding without `Settings.init()`). */

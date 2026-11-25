@@ -579,13 +579,19 @@ describe("update-cli install target detection", () => {
 
 describe("update-cli package manager commands", () => {
 	it("targets the Homebrew tap formula and switches to reinstall for forced updates", () => {
-		expect(buildHomebrewUpdateArgs(false)).toEqual(["upgrade", "usingopen/tap/usingopen"]);
-		expect(buildHomebrewUpdateArgs(true)).toEqual(["reinstall", "usingopen/tap/usingopen"]);
+		expect(buildHomebrewUpdateArgs(false)).toEqual(["upgrade", "AyushSuri8/homebrew-tap/usingopen"]);
+		expect(buildHomebrewUpdateArgs(true)).toEqual(["reinstall", "AyushSuri8/homebrew-tap/usingopen"]);
 	});
 
 	it("targets the mise GitHub backend and overrides release-age settings for attended updates", () => {
-		expect(buildMiseUpgradeArgs()).toEqual(["upgrade", "github:usingopen/usingopen", "--bump", "--before", "0s"]);
-		expect(buildMiseUpgradeArgs(false)).toEqual(["upgrade", "github:usingopen/usingopen", "--bump"]);
+		expect(buildMiseUpgradeArgs()).toEqual([
+			"upgrade",
+			"github:AyushSuri8/usingopen-cli",
+			"--bump",
+			"--before",
+			"0s",
+		]);
+		expect(buildMiseUpgradeArgs(false)).toEqual(["upgrade", "github:AyushSuri8/usingopen-cli", "--bump"]);
 		expect(buildMiseUpdateEnv({ PATH: "/bin", MISE_MINIMUM_RELEASE_AGE: "24h" })).toEqual({
 			PATH: "/bin",
 			MISE_MINIMUM_RELEASE_AGE: "0s",
@@ -593,7 +599,7 @@ describe("update-cli package manager commands", () => {
 		expect(buildMiseForceInstallArgs("15.10.5")).toEqual([
 			"install",
 			"--force",
-			"github:usingopen/usingopen@15.10.5",
+			"github:AyushSuri8/usingopen-cli@15.10.5",
 		]);
 	});
 
@@ -618,7 +624,7 @@ describe("update-cli package manager commands", () => {
 			await Bun.write(
 				path.join(root, "mise.toml"),
 				`[tools]
-"github:usingopen/usingopen" = { version = "1", minimum_release_age = "999y", api_url = "${server.url}" }
+"github:AyushSuri8/usingopen-cli" = { version = "1", minimum_release_age = "999y", api_url = "${server.url}" }
 `,
 			);
 			const env = {
@@ -649,11 +655,11 @@ describe("update-cli package manager commands", () => {
 				return stdout + stderr;
 			};
 
-			const blocked = await run(["upgrade", "github:usingopen/usingopen", "--bump", "--dry-run"]);
-			expect(blocked).not.toContain("Would install github:usingopen/usingopen@2.0.0");
+			const blocked = await run(["upgrade", "github:AyushSuri8/usingopen-cli", "--bump", "--dry-run"]);
+			expect(blocked).not.toContain("Would install github:AyushSuri8/usingopen-cli@2.0.0");
 
 			const allowed = await run([...buildMiseUpgradeArgs(), "--dry-run"]);
-			expect(allowed).toContain("Would install github:usingopen/usingopen@2.0.0");
+			expect(allowed).toContain("Would install github:AyushSuri8/usingopen-cli@2.0.0");
 		} finally {
 			server.stop(true);
 		}
@@ -804,7 +810,7 @@ describe("migrateRenamedInstall transaction", () => {
 
 		await withPlatformAsync("linux", async () => {
 			await expect(migrateRenamedInstall(release, steps)).rejects.toThrow(
-				"curl -fsSL https://usingopen.com/install",
+				"curl -fsSL https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.sh",
 			);
 		});
 		expect(calls).toEqual(["install", "removeOld", "verify", "install", "verify"]);
@@ -818,7 +824,9 @@ describe("migrateRenamedInstall transaction", () => {
 		try {
 			const { steps } = scriptedSteps({ install: [0, 0], verify: [false, false] });
 			const promise = migrateRenamedInstall(release, steps);
-			await expect(promise).rejects.toThrow("irm https://usingopen.com/install.ps1");
+			await expect(promise).rejects.toThrow(
+				"irm https://raw.githubusercontent.com/AyushSuri8/usingopen-cli/main/scripts/install.ps1",
+			);
 			await expect(promise).rejects.not.toThrow("| sh");
 		} finally {
 			Object.defineProperty(process, "platform", platformDescriptor);
@@ -904,14 +912,14 @@ describe("update-cli bun cache pruning", () => {
 			path.join(dir, "react@19.2.6@@@1", "package.json"),
 			JSON.stringify({ name: "react", version: "19.2.6" }),
 		);
-		await Bun.write(path.join(dir, "@usingopen", "pi-utils", "15.7.6@@@1"), "");
-		await Bun.write(path.join(dir, "@usingopen", "pi-utils", "15.8.0@@@1"), "");
+		await Bun.write(path.join(dir, "@usingopen", "utils", "15.7.6@@@1"), "");
+		await Bun.write(path.join(dir, "@usingopen", "utils", "15.8.0@@@1"), "");
 		await Bun.write(
-			path.join(dir, "@usingopen", "pi-utils@15.7.6@@@1", "package.json"),
+			path.join(dir, "@usingopen", "utils@15.7.6@@@1", "package.json"),
 			JSON.stringify({ name: "@usingopen/utils", version: "15.7.6" }),
 		);
 		await Bun.write(
-			path.join(dir, "@usingopen", "pi-utils@15.8.0@@@1", "package.json"),
+			path.join(dir, "@usingopen", "utils@15.8.0@@@1", "package.json"),
 			JSON.stringify({ name: "@usingopen/utils", version: "15.8.0" }),
 		);
 		await Bun.write(path.join(dir, "chalk", "4.1.2@@@1"), "");
@@ -932,10 +940,10 @@ describe("update-cli bun cache pruning", () => {
 		expect(await Bun.file(path.join(dir, "react@18.3.1@@@1", "package.json")).exists()).toBe(false);
 		expect(await Bun.file(path.join(dir, "react", "19.2.6@@@1")).exists()).toBe(true);
 		expect(await Bun.file(path.join(dir, "react@19.2.6@@@1", "package.json")).exists()).toBe(true);
-		expect(await Bun.file(path.join(dir, "@usingopen", "pi-utils", "15.7.6@@@1")).exists()).toBe(false);
-		expect(await Bun.file(path.join(dir, "@usingopen", "pi-utils@15.7.6@@@1", "package.json")).exists()).toBe(false);
-		expect(await Bun.file(path.join(dir, "@usingopen", "pi-utils", "15.8.0@@@1")).exists()).toBe(true);
-		expect(await Bun.file(path.join(dir, "@usingopen", "pi-utils@15.8.0@@@1", "package.json")).exists()).toBe(true);
+		expect(await Bun.file(path.join(dir, "@usingopen", "utils", "15.7.6@@@1")).exists()).toBe(false);
+		expect(await Bun.file(path.join(dir, "@usingopen", "utils@15.7.6@@@1", "package.json")).exists()).toBe(false);
+		expect(await Bun.file(path.join(dir, "@usingopen", "utils", "15.8.0@@@1")).exists()).toBe(true);
+		expect(await Bun.file(path.join(dir, "@usingopen", "utils@15.8.0@@@1", "package.json")).exists()).toBe(true);
 		expect(await Bun.file(path.join(dir, "chalk", "4.1.2@@@1")).exists()).toBe(true);
 		expect(await Bun.file(path.join(dir, "chalk@4.1.2@@@1", "package.json")).exists()).toBe(true);
 	});
@@ -1005,7 +1013,7 @@ describe("update-cli bun cache pruning", () => {
 describe("update-cli release binary integrity", () => {
 	const tag = "v17.1.2";
 	const binaryName = "usingopen-linux-x64";
-	const url = `https://usingopen.com/dl/${tag}/${binaryName}`;
+	const url = `https://github.com/AyushSuri8/usingopen-cli/releases/download/${tag}/${binaryName}`;
 	const content = "verified binary";
 	const digest = `sha256:${Bun.SHA256.hash(content, "hex")}`;
 
@@ -1191,7 +1199,7 @@ describe("update-cli release binary integrity", () => {
 		const metadataAuthorizations: Array<string | null> = [];
 		const fetchImpl = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
 			const requestUrl = String(input);
-			if (requestUrl.startsWith("https://usingopen.com/dl/")) {
+			if (requestUrl.startsWith("https://api.github.com/")) {
 				metadataAuthorizations.push(new Headers(init?.headers).get("Authorization"));
 				return new Response(
 					JSON.stringify(
@@ -1252,7 +1260,7 @@ describe("update-cli release binary integrity", () => {
 					state: "uploaded",
 					size: Buffer.byteLength(body),
 					digest: `sha256:${Bun.SHA256.hash(body, "hex")}`,
-					browser_download_url: `https://usingopen.com/dl/v${version}/${binaryName}`,
+					browser_download_url: `https://github.com/AyushSuri8/usingopen-cli/releases/download/v${version}/${binaryName}`,
 				},
 			],
 			...overrides,
@@ -1583,13 +1591,13 @@ describe("update-cli binary-only release gating", () => {
 describe("update-cli script-shim takeover", () => {
 	const version = "18.0.0";
 	const binaryName = "usingopen-windows-x64.exe";
-	const url = `https://usingopen.com/dl/v${version}/${binaryName}`;
+	const url = `https://github.com/AyushSuri8/usingopen-cli/releases/download/v${version}/${binaryName}`;
 
 	function makeFetch(content: string, prerelease = false): (input: string | URL | Request) => Promise<Response> {
 		const digest = `sha256:${Bun.SHA256.hash(content, "hex")}`;
 		return async (input: string | URL | Request): Promise<Response> => {
 			const requestUrl = String(input);
-			if (requestUrl.startsWith("https://usingopen.com/dl/")) {
+			if (requestUrl.startsWith("https://api.github.com/")) {
 				return new Response(
 					JSON.stringify({
 						tag_name: `v${version}`,
@@ -1820,7 +1828,7 @@ describe("update-cli script-shim takeover", () => {
 describe("update-cli concurrent binary updates", () => {
 	const version = "999.0.0";
 	const binaryName = "usingopen-linux-x64";
-	const url = `https://usingopen.com/dl/v${version}/${binaryName}`;
+	const url = `https://github.com/AyushSuri8/usingopen-cli/releases/download/v${version}/${binaryName}`;
 	const payload = Buffer.alloc(2048, 0x41);
 	const digest = `sha256:${Bun.SHA256.hash(payload, "hex")}`;
 
@@ -1835,7 +1843,7 @@ describe("update-cli concurrent binary updates", () => {
 
 	const fastFetch = async (input: string | URL | Request): Promise<Response> => {
 		const requestUrl = String(input);
-		if (requestUrl.startsWith("https://usingopen.com/dl/")) return metadata();
+		if (requestUrl.startsWith("https://api.github.com/")) return metadata();
 		if (requestUrl === url) return new Response(payload);
 		throw new Error(`Unexpected request: ${requestUrl}`);
 	};
@@ -1865,7 +1873,7 @@ describe("update-cli concurrent binary updates", () => {
 		const letAFinish = Promise.withResolvers<void>();
 		const slowFetch = async (input: string | URL | Request): Promise<Response> => {
 			const requestUrl = String(input);
-			if (requestUrl.startsWith("https://usingopen.com/dl/")) return metadata();
+			if (requestUrl.startsWith("https://api.github.com/")) return metadata();
 			if (requestUrl === url) {
 				return new Response(
 					new ReadableStream<Uint8Array>({

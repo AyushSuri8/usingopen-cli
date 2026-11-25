@@ -71,10 +71,16 @@ export function expectedChecksum(checksums, asset) {
 	return undefined;
 }
 
+/** Collapse an arbitrary tag to one safe path segment (tags may contain `/`). */
+function safeCacheSegment(tag) {
+	const segment = tag.replace(/[^0-9a-zA-Z._-]+/g, "_");
+	return segment === "" || /^\.+$/.test(segment) ? "_" : segment;
+}
+
 /** `<cache>/usingopen/bin/<host>/<tag>/<asset>`; `XDG_CACHE_HOME` is honoured. */
 export function cachePath(base, tag, asset) {
 	const host = base.replace(/^[a-z]+:\/\//, "").replace(/[^0-9a-zA-Z.-]+/g, "_");
-	return path.join(cacheRoot(), "bin", host, tag, asset);
+	return path.join(cacheRoot(), "bin", host, safeCacheSegment(tag), asset);
 }
 
 function cacheRoot() {
@@ -84,6 +90,8 @@ function cacheRoot() {
 function normalizeTag(tag) {
 	const trimmed = tag.trim().replace(/^refs\/tags\//, "");
 	if (!trimmed) return undefined;
+	// A tag becomes a cache directory name; never let it climb out of the cache.
+	if (trimmed.includes("..")) throw new Error(`invalid release tag: ${JSON.stringify(tag)}`);
 	return trimmed.startsWith("v") ? trimmed : `v${trimmed}`;
 }
 

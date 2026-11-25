@@ -84,7 +84,7 @@ const steps: Step[] = [
 	{ label: "bun install", cmd: ["bun", "install"] },
 	{ label: "build:native", cmd: ["bun", "run", "build:native", ...passthrough] },
 	{ label: "coding-agent link", cmd: ["bun", "--cwd=packages/coding-agent", "link"] },
-	{ label: "link usingopen", cmd: ["sh", "scripts/link-usingopen.com"] },
+	{ label: "link usingopen", cmd: ["sh", "scripts/link-usingopen.sh"] },
 ];
 
 for (const step of steps) {

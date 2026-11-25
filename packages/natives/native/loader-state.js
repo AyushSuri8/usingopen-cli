@@ -754,7 +754,7 @@ function buildHelpMessage(ctx) {
 		const expectedPaths = ctx.addonFilenames.map(filename => `  ${path.join(ctx.versionedDir, filename)}`).join("\n");
 		const downloadHints = ctx.addonFilenames
 			.map(filename => {
-				const downloadUrl = `https://github.com/usingopen/usingopen/releases/latest/download/${filename}`;
+				const downloadUrl = `https://github.com/AyushSuri8/usingopen-cli/releases/latest/download/${filename}`;
 				const targetPath = path.join(ctx.versionedDir, filename);
 				return `  curl -fsSL "${downloadUrl}" -o "${targetPath}"`;
 			})
@@ -765,7 +765,7 @@ function buildHelpMessage(ctx) {
 		);
 	}
 	return (
-		"If installed via npm/bun, try reinstalling: bun install @usingopen/natives\n" +
+		"If installed via npm/bun, try reinstalling the CLI: bun install -g usingopen\n" +
 		"If developing locally, build with: bun --cwd=packages/natives run build\n" +
 		"Explicit targets: bun scripts/bazel-natives.ts <target> --dest packages/natives/native"
 	);

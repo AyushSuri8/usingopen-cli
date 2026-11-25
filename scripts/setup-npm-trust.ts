@@ -42,7 +42,7 @@ import { packages } from "./ci-release-publish.ts";
 const repoRoot = path.join(import.meta.dir, "..");
 const MIN_NPM = "11.16.0";
 const DEFAULT_WORKFLOW = "ci.yml";
-const FALLBACK_REPO = "usingopen/usingopen";
+const FALLBACK_REPO = "AyushSuri8/usingopen-cli";
 const PLACEHOLDER_VERSION = "0.0.0";
 
 interface NativeLeafTarget {

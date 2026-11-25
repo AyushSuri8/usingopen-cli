@@ -9,7 +9,9 @@
 //   bun scripts/ci-update-brew-formula.ts <tag> --out <path/to/Formula/usingopen.rb>
 //   bun scripts/ci-update-brew-formula.ts v15.10.3        # prints to stdout
 
-const DL_BASE = process.env.USINGOPEN_DL_BASE ?? "https://usingopen.com/dl";
+const REPO = process.env.USINGOPEN_REPO ?? "AyushSuri8/usingopen-cli";
+const RELEASES_BASE = `https://github.com/${REPO}/releases/download`;
+const DL_BASE = process.env.USINGOPEN_DL_BASE ?? RELEASES_BASE;
 const HOMEPAGE = "https://usingopen.com";
 const DESC = "Coding agent with the IDE wired in";
 
@@ -33,22 +35,23 @@ function parseArgs(argv: readonly string[]): { tag: string; out: string | null }
 }
 
 async function fetchAssets(tag: string): Promise<ReleaseAsset[]> {
-	// Closed-source distribution: digests come from the SHA256SUMS file the
-	// artifact host publishes next to the release binaries.
-	const res = await fetch(`${DL_BASE}/${tag}/SHA256SUMS`);
+	// GitHub's release API reports the sha256 digest it computed for every
+	// uploaded asset, so the formula never reads a separate checksums file.
+	const headers: Record<string, string> = { Accept: "application/vnd.github+json", "User-Agent": "usingopen-ci" };
+	const token = process.env.GITHUB_TOKEN;
+	if (token) headers.Authorization = `Bearer ${token}`;
+	const res = await fetch(`https://api.github.com/repos/${REPO}/releases/tags/${tag}`, { headers });
 	if (!res.ok) {
-		throw new Error(`failed to fetch ${DL_BASE}/${tag}/SHA256SUMS: HTTP ${res.status}`);
+		throw new Error(`failed to fetch release ${tag} for ${REPO}: HTTP ${res.status}`);
 	}
-	const text = await res.text();
-	return text
-		.split("\n")
-		.map(line => line.trim())
-		.filter(line => line.length > 0)
-		.map(line => {
-			const [digest, ...rest] = line.split(/\s+/);
-			const name = rest.join(" ").replace(/^\*/, "");
-			return { name, digest: `sha256:${digest}` } satisfies ReleaseAsset;
-		});
+	const release = (await res.json()) as { assets?: Array<{ name?: unknown; digest?: unknown }> };
+	const assets = Array.isArray(release.assets) ? release.assets : [];
+	return assets
+		.filter((asset): asset is { name: string; digest?: string } => typeof asset.name === "string")
+		.map(asset => ({
+			name: asset.name,
+			digest: typeof asset.digest === "string" ? asset.digest : undefined,
+		}));
 }
 
 function sha256For(assets: readonly ReleaseAsset[], name: string): string {

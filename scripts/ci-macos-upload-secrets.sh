@@ -29,7 +29,7 @@ for arg in "$@"; do
 	esac
 done
 DIR="${DIR:-${USINGOPEN_SIGNING_DIR:-$HOME/usingopen-signing}}"
-REPO="${USINGOPEN_REPO:-usingopen/usingopen}"
+REPO="${USINGOPEN_REPO:-AyushSuri8/usingopen-cli}"
 
 die() {
 	echo "ci-macos-upload-secrets: $1" >&2
